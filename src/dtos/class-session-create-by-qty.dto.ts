@@ -1,5 +1,5 @@
 export class ClassSessionCreateByQtyDto {
-  createSessionTutorId: string;
+  tutorId: string;
   classId: string;
   numberOfSessions: number;
 }

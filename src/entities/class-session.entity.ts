@@ -6,6 +6,7 @@ import {
 } from 'typeorm';
 import { Geometry } from 'geojson';
 import { ClassSessionMaterial } from './class-session-material.entity';
+import { ClassSessionStatus } from '@tutorify/shared';
 
 @Entity()
 export class ClassSession {
@@ -50,4 +51,17 @@ export class ClassSession {
 
   @Column({ default: '' })
   tutorFeedback: string;
+
+  @Column({
+    type: 'enum',
+    enum: ClassSessionStatus,
+    default: ClassSessionStatus.CREATE_PENDING,
+  })
+  status: ClassSessionStatus;
+
+  @Column({ default: false })
+  classVerified: boolean;
+
+  @Column({ default: false })
+  tutorVerified: boolean;
 }

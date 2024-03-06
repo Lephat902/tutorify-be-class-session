@@ -1,4 +1,5 @@
 export class ClassSessionCreateDto {
+  tutorId: string;
   classId: string;
   description?: string;
   title: string;

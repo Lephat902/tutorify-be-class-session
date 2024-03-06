@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { ClassSession } from './entities/class-session.entity';
 import { ClassSessionQueryDto } from './dtos';
+import { ClassSessionStatus } from '@tutorify/shared';
 
 @Injectable()
 export class ClassSessionRepository extends Repository<ClassSession> {
@@ -12,10 +13,12 @@ export class ClassSessionRepository extends Repository<ClassSession> {
   async getAllClassSessions(
     filters: ClassSessionQueryDto,
   ): Promise<ClassSession[]> {
-    const queryBuilder = this.dataSource.createQueryBuilder(
-      ClassSession,
-      'classSession',
-    );
+    const queryBuilder = this.createQueryBuilder('classSession');
+
+    // Only count successfully created classes
+    queryBuilder.andWhere('classSession.status = :status', {
+      status: ClassSessionStatus.CREATED,
+    });
 
     if (filters.classId) {
       queryBuilder.andWhere('classSession.classId = :classId', {
@@ -60,18 +63,16 @@ export class ClassSessionRepository extends Repository<ClassSession> {
   }
 
   async getSessionCountOfClass(classId: string): Promise<number> {
-    const sessionCount = await this.createQueryBuilder()
-      .select('COUNT(*)', 'sessionCount')
-      .from(ClassSession, 'session')
+    return this.createQueryBuilder('session')
       .where('session.classId = :classId', { classId })
-      .getRawOne();
-
-    return parseInt(sessionCount.sessionCount);
+      .andWhere('session.status = :status', { status: ClassSessionStatus.CREATED })
+      .getCount();
   }
 
   async getLatestSessionOfClass(classId: string): Promise<ClassSession> {
     return await this.createQueryBuilder('session')
       .where('session.classId = :classId', { classId })
+      .andWhere('session.status = :status', { status: ClassSessionStatus.CREATED })
       .orderBy('session.endDatetime', 'DESC')
       .getOne();
   }

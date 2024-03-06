@@ -19,6 +19,7 @@ import { firstValueFrom } from 'rxjs';
 import { ClassSessionEventDispatcher } from './class-session.event-dispatcher';
 import { convertTimestringToDate, weekdayToNumber } from './helpers';
 import { Builder } from 'builder-pattern';
+import { EntityManager } from 'typeorm';
 
 @Injectable()
 export class ClassSessionService {
@@ -37,14 +38,20 @@ export class ClassSessionService {
     return this.classSessionRepository.getAllClassSessions(filters);
   }
 
-  async getClassSessionById(classSessionId: string): Promise<ClassSession> {
-    return this.classSessionRepository.findOneBy({ id: classSessionId });
+  async getClassSessionById(
+    id: string,
+    manager?: EntityManager,
+  ): Promise<ClassSession> {
+    const repo = manager
+      ? manager.getRepository(ClassSession)
+      : this.classSessionRepository;
+    return repo.findOneBy({ id });
   }
 
   async createClassSession(
     classSessionDto: ClassSessionCreateDto,
   ): Promise<ClassSession> {
-    const { materials, ...sessionData } = classSessionDto;
+    const { tutorId, materials, ...sessionData } = classSessionDto;
 
     const session = new ClassSession();
     Object.assign(session, sessionData);
@@ -56,7 +63,10 @@ export class ClassSessionService {
       this.uploadAndAssignMaterialToSession(newClassSession.id, materials);
     }
 
-    this.eventDispatcher.dispatchClassSessionCreatedEvent(newClassSession);
+    this.eventDispatcher.dispatchClassSessionCreatedEvent(
+      tutorId,
+      newClassSession,
+    );
 
     return newClassSession;
   }
@@ -64,8 +74,7 @@ export class ClassSessionService {
   async createClassSessionsWithNumberOfSessions(
     classSessionCreateByQtyDto: ClassSessionCreateByQtyDto,
   ) {
-    const { classId, numberOfSessions, createSessionTutorId } =
-      classSessionCreateByQtyDto;
+    const { classId, numberOfSessions, tutorId } = classSessionCreateByQtyDto;
     const classEntity = await this.getClassEntity(classId);
     const timeSlots = this.getTimeSlots(classEntity);
     let currentDate = await this.getCurrentDate(classId);
@@ -92,10 +101,21 @@ export class ClassSessionService {
 
     const newClassSessions = await this.classSessionRepository.save(sessions);
     this.eventDispatcher.dispatchMultipleClassSessionsCreatedEvent(
-      createSessionTutorId,
+      tutorId,
       newClassSessions,
     );
     return newClassSessions;
+  }
+
+  async updateClassSession(
+    id: string,
+    data: Partial<ClassSession>,
+    manager?: EntityManager,
+  ) {
+    const repo = manager
+      ? manager.getRepository(ClassSession)
+      : this.classSessionRepository;
+    await repo.update({ id }, data);
   }
 
   private async getClassEntity(classId: string) {

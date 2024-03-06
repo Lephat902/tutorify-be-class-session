@@ -13,13 +13,17 @@ import { Injectable } from '@nestjs/common';
 export class ClassSessionEventDispatcher {
   constructor(private readonly broadcastService: BroadcastService) {}
 
-  dispatchClassSessionCreatedEvent(newClassSession: ClassSession) {
+  dispatchClassSessionCreatedEvent(
+    createSessionTutorId: string,
+    newClassSession: ClassSession,
+  ) {
     const { id, classId, title, createdAt } = newClassSession;
     const eventPayload = Builder<ClassSessionCreatedEventPayload>()
       .classSessionId(id)
       .classId(classId)
       .title(title)
       .createdAt(createdAt)
+      .createSessionTutorId(createSessionTutorId)
       .build();
     const event = new ClassSessionCreatedEvent(eventPayload);
     this.broadcastService.broadcastEventToAllMicroservices(
