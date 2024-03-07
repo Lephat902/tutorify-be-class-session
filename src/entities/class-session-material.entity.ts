@@ -3,5 +3,4 @@ export class ClassSessionMaterial {
   url: string;
   title: string;
   size: number;
-  description: string;
 }

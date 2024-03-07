@@ -65,14 +65,18 @@ export class ClassSessionRepository extends Repository<ClassSession> {
   async getSessionCountOfClass(classId: string): Promise<number> {
     return this.createQueryBuilder('session')
       .where('session.classId = :classId', { classId })
-      .andWhere('session.status = :status', { status: ClassSessionStatus.CREATED })
+      .andWhere('session.status = :status', {
+        status: ClassSessionStatus.CREATED,
+      })
       .getCount();
   }
 
   async getLatestSessionOfClass(classId: string): Promise<ClassSession> {
     return await this.createQueryBuilder('session')
       .where('session.classId = :classId', { classId })
-      .andWhere('session.status = :status', { status: ClassSessionStatus.CREATED })
+      .andWhere('session.status = :status', {
+        status: ClassSessionStatus.CREATED,
+      })
       .orderBy('session.endDatetime', 'DESC')
       .getOne();
   }

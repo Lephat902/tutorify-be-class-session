@@ -40,20 +40,6 @@ import { ClassSessionEventDispatcher } from './class-session.event-dispatcher';
           },
         }),
       },
-      {
-        name: QueueNames.CLASS_AND_CATEGORY,
-        inject: [ConfigService], // Inject ConfigService
-        useFactory: async (configService: ConfigService) => ({
-          transport: Transport.RMQ,
-          options: {
-            urls: [configService.get<string>('RABBITMQ_URI')],
-            queue: QueueNames.CLASS_AND_CATEGORY,
-            queueOptions: {
-              durable: false,
-            },
-          },
-        }),
-      },
     ]),
     ConfigModule.forRoot({
       isGlobal: true,

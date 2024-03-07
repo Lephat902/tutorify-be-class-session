@@ -1,16 +1,16 @@
+import { ClassTimeSlotDto } from './class.dto';
+
 export class ClassSessionCreateDto {
   tutorId: string;
   classId: string;
   description?: string;
   title: string;
-  startDatetime: Date;
-  endDatetime: Date;
+  startDate?: Date;
+  timeSlots: ClassTimeSlotDto[];
+  numberOfSessionsToCreate?: number;
+  endDateForRecurringSessions?: Date;
   address?: string;
   wardId?: string;
   isOnline: boolean;
-  materials?: {
-    description: string;
-    file: Express.Multer.File;
-  }[];
-  tutorFeedback: string;
+  files?: Array<Express.Multer.File>;
 }
