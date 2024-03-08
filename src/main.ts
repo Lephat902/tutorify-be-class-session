@@ -2,7 +2,7 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { AppModule } from './app.module';
 import { GlobalExceptionsFilter } from './global-exception-filter';
-import { ClassSerializerInterceptor } from '@nestjs/common';
+import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { QueueNames } from '@tutorify/shared';
 
 async function bootstrap() {
@@ -19,6 +19,16 @@ async function bootstrap() {
       },
     },
   );
+
+  // Set up global validation pipe to validate input
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+
   // Use the global exception filter
   app.useGlobalFilters(new GlobalExceptionsFilter());
 
