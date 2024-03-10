@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { ClassSession } from './entities/class-session.entity';
-import { ClassSessionQueryDto } from './dtos';
+import { ClassSessionQueryDto } from '../dtos';
 import { ClassSessionStatus } from '@tutorify/shared';
 
 @Injectable()
-export class ClassSessionRepository extends Repository<ClassSession> {
+export class ClassSessionReadRepository extends Repository<ClassSession> {
   constructor(private dataSource: DataSource) {
     super(ClassSession, dataSource.createEntityManager());
   }

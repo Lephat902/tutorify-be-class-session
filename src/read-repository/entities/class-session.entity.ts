@@ -1,8 +1,7 @@
 import {
   Entity,
   Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
+  PrimaryColumn,
 } from 'typeorm';
 import { Geometry } from 'geojson';
 import { ClassSessionMaterial } from './class-session-material.entity';
@@ -10,7 +9,7 @@ import { ClassSessionStatus } from '@tutorify/shared';
 
 @Entity()
 export class ClassSession {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn()
   id: string;
 
   @Column()
@@ -19,19 +18,22 @@ export class ClassSession {
   @Column({ default: '' })
   description: string;
 
-  @Column()
+  @Column({ default: '' })
   title: string;
 
   @Column({ default: false })
   isCancelled: boolean;
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @Column({ nullable: true })
   createdAt: Date;
 
-  @Column({ nullable: false })
+  @Column({ nullable: true })
+  updatedAt: Date;
+
+  @Column({ nullable: true })
   startDatetime: Date;
 
-  @Column({ nullable: false })
+  @Column({ nullable: true })
   endDatetime: Date;
 
   @Column({ nullable: true })

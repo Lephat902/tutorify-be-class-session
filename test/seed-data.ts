@@ -1,5 +1,5 @@
 import { ApplicationStatus } from '@tutorify/shared';
-import { ClassSession } from '../src/entities/class-session.entity';
+import { ClassSession } from '../src/read-repository/entities/class-session.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 const class1Id = uuidv4();

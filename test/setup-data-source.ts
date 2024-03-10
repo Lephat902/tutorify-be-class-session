@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import { newDb, DataType } from 'pg-mem';
 import { v4 } from 'uuid';
-import { ClassSession } from '../src/entities/class-session.entity';
+import { ClassSession } from '../src/read-repository/entities/class-session.entity';
 
 export const setupDataSource = async () => {
   const db = newDb({

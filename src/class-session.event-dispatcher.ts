@@ -4,10 +4,12 @@ import {
   ClassSessionCreatedEventPayload,
   MultipleClassSessionsCreatedEvent,
   MultipleClassSessionsCreatedEventPayload,
+  ClassSessionUpdatedEvent,
+  ClassSessionUpdatedEventPayload,
 } from '@tutorify/shared';
-import { ClassSession } from './entities';
 import { Builder } from 'builder-pattern';
 import { Injectable } from '@nestjs/common';
+import { ClassSession } from './aggregates';
 
 @Injectable()
 export class ClassSessionEventDispatcher {
@@ -36,13 +38,32 @@ export class ClassSessionEventDispatcher {
     createSessionTutorId: string,
     newClassSessions: ClassSession[],
   ) {
-    const newClassSessionsIds = newClassSessions.map((session) => session.id);
+    const newClassSessionsIds = newClassSessions.map(session => session.id);
     const eventPayload = Builder<MultipleClassSessionsCreatedEventPayload>()
       .classSessionIds(newClassSessionsIds)
       .classId(newClassSessions[0].classId)
       .createSessionTutorId(createSessionTutorId)
       .build();
     const event = new MultipleClassSessionsCreatedEvent(eventPayload);
+    this.broadcastService.broadcastEventToAllMicroservices(
+      event.pattern,
+      event.payload,
+    );
+  }
+
+  dispatchClassSessionUpdatedEvent(
+    updateSessionTutorId: string,
+    updatedClassSession: ClassSession,
+  ) {
+    const { id, updatedAt, address, wardId } = updatedClassSession;
+    const eventPayload = Builder<ClassSessionUpdatedEventPayload>()
+      .updateSessionTutorId(updateSessionTutorId)
+      .classSessionId(id)
+      .updatedAt(updatedAt)
+      .address(address)
+      .wardId(wardId)
+      .build();
+    const event = new ClassSessionUpdatedEvent(eventPayload);
     this.broadcastService.broadcastEventToAllMicroservices(
       event.pattern,
       event.payload,

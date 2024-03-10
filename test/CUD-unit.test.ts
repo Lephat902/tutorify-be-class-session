@@ -1,11 +1,11 @@
 import { TestingModule } from '@nestjs/testing';
-import { ClassSessionService } from '../src/class-session.service';
+import { ClassSessionService } from '../src/services';
 import { buildTestingModule } from './build-testing-module';
-import { ClassSessionCreateDto } from '../src/dtos';
+import { MultipleClassSessionsCreateDto } from '../src/dtos';
 import { ApplicationStatus, BroadcastService } from '@tutorify/shared';
 import { v4 as uuidv4 } from 'uuid';
-import { ClassSession } from '../src/entities/class-session.entity';
-import { ClassSessionRepository } from '../src/class-session.repository';
+import { ClassSession } from '../src/read-repository/entities/class-session.entity';
+import { ClassSessionRepository } from '../src/read-repository/class-session.read.repository';
 import { seedData } from './seed-data';
 
 describe('ClassSessionService', () => {
@@ -30,7 +30,7 @@ describe('ClassSessionService', () => {
 
   xit('should insert a new class application', async () => {
     // Arrange
-    const classApplicationCreateDto: ClassSessionCreateDto = {
+    const classApplicationCreateDto: MultipleClassSessionsCreateDto = {
       classId: uuidv4(),
       tutorId: uuidv4(),
       isDesignated: false,

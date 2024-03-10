@@ -1,18 +1,19 @@
-import { Global, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ClassSessionService } from './class-session.service';
 import {
   ClassSessionController,
-  ClassSessionControllerEventHandler,
+  ClassSessionExternalEventHandler,
+  ClassSessionReadRepositorySync,
 } from './controllers';
-import { ClassSessionRepository } from './class-session.repository';
+import { ClassSessionReadRepository } from './read-repository';
 import { BroadcastModule, QueueNames } from '@tutorify/shared';
-import { entities } from './entities';
+import { entities } from './read-repository/entities';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ClassSessionEventDispatcher } from './class-session.event-dispatcher';
+import { EventNestMongoDbModule } from '@event-nest/mongodb';
+import { ClassSessionReadService, ClassSessionWriteService } from './services';
 
-@Global()
 @Module({
   imports: [
     TypeOrmModule.forFeature(entities),
@@ -41,6 +42,14 @@ import { ClassSessionEventDispatcher } from './class-session.event-dispatcher';
         }),
       },
     ]),
+    EventNestMongoDbModule.registerAsync({
+      useFactory: async (configService: ConfigService) => ({
+        connectionUri: configService.get<string>('EVENT_STORE_MONGODB_URI'),
+        aggregatesCollection: 'aggregates-collection',
+        eventsCollection: 'events-collection'
+      }),
+      inject: [ConfigService],
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env', '.env.example'],
@@ -48,10 +57,15 @@ import { ClassSessionEventDispatcher } from './class-session.event-dispatcher';
     BroadcastModule,
   ],
   providers: [
-    ClassSessionService,
-    ClassSessionRepository,
+    ClassSessionWriteService,
+    ClassSessionReadService,
+    ClassSessionReadRepository,
     ClassSessionEventDispatcher,
   ],
-  controllers: [ClassSessionController, ClassSessionControllerEventHandler],
+  controllers: [
+    ClassSessionController,
+    ClassSessionExternalEventHandler,
+    ClassSessionReadRepositorySync,
+  ],
 })
-export class AppModule {}
+export class AppModule { }

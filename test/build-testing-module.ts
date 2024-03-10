@@ -2,8 +2,8 @@ import { Test } from '@nestjs/testing';
 import { setupDataSource } from './setup-data-source';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { ClassSessionService } from '../src/class-session.service';
-import { ClassSessionRepository } from '../src/class-session.repository';
+import { ClassSessionService } from '../src/services';
+import { ClassSessionRepository } from '../src/read-repository/class-session.read.repository';
 import { CqrsModule } from '@nestjs/cqrs';
 import { BroadcastModule } from '@tutorify/shared';
 
