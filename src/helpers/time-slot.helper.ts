@@ -65,12 +65,15 @@ export function getNextSessionDate(
 }
 
 export function isValidTimeSlotDuration(startTime: Date, endTime: Date) {
+  if (!(startTime && endTime)) {
+    throw new BadRequestException('Neither startTime nor endTime can be empty.');
+  }
   const duration = endTime.getTime() - startTime.getTime();
   if (duration < 30 * 60 * 1000) { // 30 minutes in milliseconds
-    throw new BadRequestException('Time slot duration must be at least 30 minutes');
+    throw new BadRequestException('Time slot duration must be at least 30 minutes.');
   }
   if (duration >= 24 * 60 * 60 * 1000) { // 24 hours in milliseconds
-    throw new BadRequestException('Time slot duration must be less than 1 day');
+    throw new BadRequestException('Time slot duration must be less than 1 day.');
   }
   
   return true;

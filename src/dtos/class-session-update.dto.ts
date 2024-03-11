@@ -2,6 +2,8 @@ import { Type } from 'class-transformer'
 
 export class ClassSessionUpdateDto {
   readonly tutorId: string;
+  // Session Data
+  readonly classSessionId: string;
   readonly description?: string;
   readonly title?: string;
   readonly isCancelled?: boolean;

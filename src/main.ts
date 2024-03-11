@@ -4,7 +4,6 @@ import { AppModule } from './app.module';
 import { GlobalExceptionsFilter } from './global-exception-filter';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { QueueNames } from '@tutorify/shared';
-import { ClassSession } from './aggregates';
 
 async function bootstrap() {
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
@@ -32,9 +31,6 @@ async function bootstrap() {
   app.useGlobalFilters(new GlobalExceptionsFilter());
 
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
-
-  // Initialize Broadcast Service for Class Session Aggregate
-  ClassSession.initialize();
 
   await app.listen();
 }

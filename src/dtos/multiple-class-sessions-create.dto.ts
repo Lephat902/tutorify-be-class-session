@@ -2,6 +2,7 @@ import { ClassTimeSlotDto } from './class.dto';
 
 export class MultipleClassSessionsCreateDto {
   tutorId: string;
+  // Session Data
   classId: string;
   description: string;
   title: string;

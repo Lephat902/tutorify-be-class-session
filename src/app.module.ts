@@ -13,6 +13,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ClassSessionEventDispatcher } from './class-session.event-dispatcher';
 import { EventNestMongoDbModule } from '@event-nest/mongodb';
 import { ClassSessionReadService, ClassSessionWriteService } from './services';
+import { MutexService } from './mutexes';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { ClassSessionReadService, ClassSessionWriteService } from './services';
     ClassSessionReadService,
     ClassSessionReadRepository,
     ClassSessionEventDispatcher,
+    MutexService,
   ],
   controllers: [
     ClassSessionController,

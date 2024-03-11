@@ -1,52 +1,40 @@
 import { AggregateRoot, AggregateRootName, EventProcessor, StoredEvent } from "@event-nest/core";
-import { BroadcastService, ClassSessionStatus, generateRandomHex } from "@tutorify/shared";
+import { BroadcastService, generateRandomHex } from "@tutorify/shared";
 import { ClassSessionMaterial } from "src/read-repository/entities/class-session-material.entity";
 import { ClassSessionCreatedEvent, ClassSessionUpdatedEvent } from "src/events";
 import { Geometry } from 'geojson';
-import { ClassSessionUpdateDto } from "src/dtos/class-session-update.dto";
 import { ClassSessionEventDispatcher } from "src/class-session.event-dispatcher";
-import { Injectable } from "@nestjs/common";
-
-export type ClassSessionCreateArgs = Pick<ClassSession,
-  'classId' |
-  'description' |
-  'title' |
-  'createdAt' |
-  'startDatetime' |
-  'endDatetime' |
-  'address' |
-  'wardId' |
-  'isOnline'
-> & {
-  tutorId: string,
-};
-export type ClassSessionUpdateArgs = Omit<ClassSessionUpdateDto, 'files'>;
-export type ClassSessionVerificationUpdateArgs = Partial<Pick<ClassSession, 'tutorVerified' | 'classVerified' | 'status'>>;
-export type ClassSessionMaterialsUpdateArgs = Pick<ClassSession, 'materials'>;
+import { ClassSessionVerificationUpdatedEvent } from "src/events/class-session-verification-updated.event";
+import { ClassSessionCreateArgs, ClassSessionMaterialsUpdateArgs, ClassSessionUpdateArgs, ClassSessionVerificationUpdateArgs } from "./args";
+import { ClassSessionCreateStatus, ClassSessionUpdateStatus } from "./enums";
 
 @AggregateRootName("ClassSession")
-@Injectable()
 export class ClassSession extends AggregateRoot {
+  public tutorId: string;
   public classId: string;
   public description: string = '';
   public title: string = '';
   public isCancelled: boolean = false;
-  public createdAt: Date;
-  public updatedAt: Date;
-  public startDatetime: Date;
-  public endDatetime: Date;
+  public createdAt: Date = null;
+  public updatedAt: Date = null;
+  public startDatetime: Date = null;
+  public endDatetime: Date = null;
   public address: string = '';
   public wardId: string = '';
   public location: Geometry;
   public isOnline: boolean = true;
   public materials: ClassSessionMaterial[] = [];
   public tutorFeedback: string = '';
-  public status: ClassSessionStatus = ClassSessionStatus.CREATE_PENDING;
+  public createStatus: ClassSessionCreateStatus = ClassSessionCreateStatus.CREATE_PENDING;
+  public updateStatus: ClassSessionUpdateStatus = ClassSessionUpdateStatus.UPDATED;
   public classVerified: boolean = false;
   public tutorVerified: boolean = false;
 
-  private constructor(id: string) {
+  public constructor(id: string) {
     super(id);
+    if (!ClassSession.classSessionEventDispatcher) {
+      ClassSession.initialize();
+    }
   }
 
   private static classSessionEventDispatcher: ClassSessionEventDispatcher;
@@ -73,7 +61,6 @@ export class ClassSession extends AggregateRoot {
   update(
     data:
       ClassSessionUpdateArgs |
-      ClassSessionVerificationUpdateArgs |
       ClassSessionMaterialsUpdateArgs,
   ) {
     const event = new ClassSessionUpdatedEvent(data);
@@ -81,29 +68,43 @@ export class ClassSession extends AggregateRoot {
     this.append(event);
   }
 
+  updateVerification(data: ClassSessionVerificationUpdateArgs) {
+    const event = new ClassSessionVerificationUpdatedEvent(data);
+    this.processClassSessionVerificationUpdatedEvent(event);
+    this.append(event);
+  }
+
   @EventProcessor(ClassSessionCreatedEvent)
   private processClassSessionCreatedEvent = (event: ClassSessionCreatedEvent) => {
-    const { tutorId, ...sessionData } = event;
-    Object.assign<ClassSession, Omit<ClassSessionCreatedEvent, "tutorId">>(this, sessionData);
+    Object.assign(this, event);
   };
 
   @EventProcessor(ClassSessionUpdatedEvent)
   private processClassSessionUpdatedEvent = (event: ClassSessionUpdatedEvent) => {
-    const { tutorId, ...sessionData } = event;
-    Object.assign<ClassSession, Omit<ClassSessionUpdatedEvent, "tutorId">>(this, sessionData);
+    Object.assign(this, event);
+  };
+
+  @EventProcessor(ClassSessionVerificationUpdatedEvent)
+  private processClassSessionVerificationUpdatedEvent = (event: ClassSessionVerificationUpdatedEvent) => {
+    Object.assign(this, event);
   };
 
   async commitAndPublishToExternal(): Promise<AggregateRoot> {
-    const lastEvent = this.appendedEvents.pop();
-    const lastEventData = lastEvent.payload;
-    const createdAggreate = await this.commit();
+    // Duplicate events before commit otherwise it will disappear
+    const recentlyAppendedEvents = [...this.appendedEvents];
+    const createdAggregate = await this.commit();
 
-    if (lastEventData instanceof ClassSessionCreatedEvent) {
-      ClassSession.classSessionEventDispatcher.dispatchClassSessionCreatedEvent(lastEventData.tutorId, this);
-    } else if (lastEventData instanceof ClassSessionUpdatedEvent) {
-      ClassSession.classSessionEventDispatcher.dispatchClassSessionUpdatedEvent(lastEventData.tutorId, this);
+    for (const event of recentlyAppendedEvents) {
+      const eventPayload = event.payload;
+      if (eventPayload instanceof ClassSessionCreatedEvent) {
+        ClassSession.classSessionEventDispatcher.dispatchClassSessionCreatedEvent(eventPayload.tutorId, this);
+      } else if (eventPayload instanceof ClassSessionUpdatedEvent) {
+        ClassSession.classSessionEventDispatcher.dispatchClassSessionUpdatedEvent(eventPayload.tutorId, this);
+      } else if (eventPayload instanceof ClassSessionVerificationUpdatedEvent) {
+        ClassSession.classSessionEventDispatcher.dispatchClassSessionVerificationUpdatedEvent(this.id);
+      }
     }
 
-    return createdAggreate;
+    return createdAggregate;
   }
 }

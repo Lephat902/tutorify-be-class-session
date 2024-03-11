@@ -1,13 +1,12 @@
 import { Controller } from '@nestjs/common';
 import { EventPattern } from '@nestjs/microservices';
 import {
-  ClassSessionCreatedEventPattern,
-  ClassSessionCreatedEventPayload,
-  ClassSessionUpdatedEventPattern,
-  ClassSessionUpdatedEventPayload,
+  ClassSessionVerificationUpdatedEventPattern,
+  ClassSessionVerificationUpdatedEventPayload,
 } from '@tutorify/shared';
 import { ClassSessionWriteService } from 'src/services';
 import { ClassSessionReadRepository } from 'src/read-repository';
+import { ClassSessionCreateStatus, ClassSessionUpdateStatus } from 'src/aggregates/enums';
 
 @Controller()
 export class ClassSessionReadRepositorySync {
@@ -17,30 +16,24 @@ export class ClassSessionReadRepositorySync {
     private readonly classSessionReadRepository: ClassSessionReadRepository,
   ) { }
 
-  @EventPattern(new ClassSessionCreatedEventPattern())
-  async handleClassSessionCreated(
-    payload: ClassSessionCreatedEventPayload,
+  @EventPattern(new ClassSessionVerificationUpdatedEventPattern())
+  async handleClassSessionVerificationUpdated(
+    payload: ClassSessionVerificationUpdatedEventPayload,
   ) {
     const { classSessionId } = payload;
-    console.log(`Start inserting new class session ${classSessionId} to read-database`);
-    const newClassSession = await this.classSessionWriteService.getSessionById(classSessionId);
+    const classSession = await this.classSessionWriteService.getSessionById(classSessionId);
+    const isCreated = classSession.createStatus === ClassSessionCreateStatus.CREATED;
+    const isUpdated = classSession.updateStatus === ClassSessionUpdateStatus.UPDATED;
+
+    if (!(isCreated && isUpdated)) {
+      console.log("Not allow unstable class session to enter read-database");
+      return;
+    }
+    console.log(`Start inserting/updating class session ${classSessionId} to read-database`);
     const sessionToSave = this.classSessionReadRepository.create({
-      ...newClassSession,
+      ...classSession,
       id: classSessionId,
     });
     await this.classSessionReadRepository.save(sessionToSave);
-  }
-
-  @EventPattern(new ClassSessionUpdatedEventPattern())
-  async handleClassSessionUpdated(
-    payload: ClassSessionUpdatedEventPayload,
-  ) {
-    const { classSessionId } = payload;
-    console.log(`Start updating class session ${classSessionId} to read-database`);
-    const updatedClassSession = await this.classSessionWriteService.getSessionById(classSessionId);
-    const sessionToSave = this.classSessionReadRepository.create(updatedClassSession);
-    await this.classSessionReadRepository.update({
-      id: classSessionId,
-    }, sessionToSave);
   }
 }

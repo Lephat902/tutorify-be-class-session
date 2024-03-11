@@ -3,13 +3,15 @@ import { EventPattern } from '@nestjs/microservices';
 import {
   ClassSessionClassVerifiedEventPattern,
   ClassSessionClassVerifiedEventPayload,
-  ClassSessionStatus,
   ClassSessionTutorVerifiedEventPattern,
   ClassSessionTutorVerifiedEventPayload,
+  ClassSessionVerificationUpdatedEventPattern,
+  ClassSessionVerificationUpdatedEventPayload,
 } from '@tutorify/shared';
 import { ClassSessionWriteService } from 'src/services';
-import { ClassSession } from 'src/read-repository/entities';
-import { Mutex } from 'async-mutex'
+import { MutexService } from 'src/mutexes';
+import { ClassSessionVerificationUpdateArgs } from 'src/aggregates';
+import { ClassSessionCreateStatus, ClassSessionUpdateStatus } from 'src/aggregates/enums';
 
 enum VerificationType {
   TutorVerified = 'tutorVerified',
@@ -19,13 +21,9 @@ enum VerificationType {
 @Controller()
 export class ClassSessionExternalEventHandler {
   constructor(
-    private readonly classSessionWriteService: ClassSessionWriteService
-  ) { 
-    this.mutexMap = new Map<string, Mutex>();
-  }
-
-  // Map to store mutex instances for each classSessionId
-  private mutexMap: Map<string, Mutex>;
+    private readonly classSessionWriteService: ClassSessionWriteService,
+    private readonly mutexService: MutexService,
+  ) { }
 
   @EventPattern(new ClassSessionTutorVerifiedEventPattern())
   async handleClassSessionTutorVerified(
@@ -53,39 +51,80 @@ export class ClassSessionExternalEventHandler {
     );
   }
 
+  @EventPattern(new ClassSessionVerificationUpdatedEventPattern())
+  async handleClassSessionVerificationUpdated(
+    payload: ClassSessionVerificationUpdatedEventPayload,
+  ) {
+    const { classSessionId } = payload;
+    // Lock the mutex
+    const release = await this.mutexService.acquireLockForClassSession(classSessionId);
+
+    try {
+      console.log(`Starting handling status for class ${classSessionId} after verification update`);
+      const classSession = await this.classSessionWriteService.getSessionById(classSessionId);
+      const isCreatePending = classSession.createStatus === ClassSessionCreateStatus.CREATE_PENDING;
+      const isUpdatePending = classSession.updateStatus === ClassSessionUpdateStatus.UPDATE_PENDING;
+      const isUpdateFailed = classSession.updateStatus === ClassSessionUpdateStatus.FAILED;
+
+      // If it's failed update then revert to as before last update
+      if (isUpdateFailed) {
+        console.log(`Starting revert class session ${classSessionId} to as before update`);
+        await this.classSessionWriteService.revertToLastUpdate(classSession);
+        return;
+      }
+
+      // The session is not _pending
+      if (!isCreatePending && !isUpdatePending) {
+        console.log("No need to process");
+        return;
+      }
+
+      // Check if all verifications are successful
+      if (Object.values(VerificationType).every((type) => classSession[type])) {
+        console.log("Succeed all verifications required.");
+        const dataToUpdate: ClassSessionVerificationUpdateArgs =
+          isCreatePending ? {
+            createStatus: ClassSessionCreateStatus.CREATED,
+          } : {
+            updateStatus: ClassSessionUpdateStatus.UPDATED,
+          };
+
+        await this.classSessionWriteService.updateClassSessionVerification(classSessionId, dataToUpdate);
+      }
+    } finally {
+      // Release the mutex
+      release();
+    }
+  }
+
   private async updateVerificationInfo(
     classSessionId: string,
     isValid: boolean,
     verificationType: VerificationType,
   ) {
-    // Retrieve or create a mutex instance for the classSessionId
-    let mutex = this.mutexMap.get(classSessionId);
-    if (!mutex) {
-      mutex = new Mutex();
-      this.mutexMap.set(classSessionId, mutex);
-    }
-
     // Lock the mutex
-    const release = await mutex.acquire();
+    const release = await this.mutexService.acquireLockForClassSession(classSessionId);
 
     try {
-      const dataToUpdate: Partial<ClassSession> = {
+      const classSession = await this.classSessionWriteService.getSessionById(classSessionId);
+      const isCreatePending = classSession.createStatus === ClassSessionCreateStatus.CREATE_PENDING;
+      const isUpdatePending = classSession.updateStatus === ClassSessionUpdateStatus.UPDATE_PENDING;
+
+      const dataToUpdate: Partial<ClassSessionVerificationUpdateArgs> = {
         [verificationType]: isValid,
-        ...(isValid ? {} : { status: ClassSessionStatus.FAILED }),
+        ...(isCreatePending && !isValid ?
+          { createStatus: ClassSessionCreateStatus.FAILED } :
+          {}
+        ),
+        ...(isUpdatePending && !isValid ?
+          { updateStatus: ClassSessionUpdateStatus.FAILED } :
+          {}
+        ),
       };
       await this.classSessionWriteService.updateClassSessionVerification(
         classSessionId,
         dataToUpdate,
       );
-      const classSession =
-        await this.classSessionWriteService.getSessionById(classSessionId);
-
-      // Check if all verifications are successful
-      if (Object.values(VerificationType).every((type) => classSession[type])) {
-        await this.classSessionWriteService.updateClassSessionVerification(classSessionId, {
-          status: ClassSessionStatus.CREATED,
-        });
-      }
     } finally {
       // Release the mutex
       release();

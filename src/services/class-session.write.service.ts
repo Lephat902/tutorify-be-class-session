@@ -1,14 +1,16 @@
-import { EVENT_STORE, EventStore } from "@event-nest/core";
+import { EVENT_STORE, EventStore, StoredEvent } from "@event-nest/core";
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { FileUploadResponseDto, QueueNames, validateClassAndSessionAddress } from "@tutorify/shared";
+import { FileUploadResponseDto, QueueNames, cleanAggregateObject, validateClassAndSessionAddress } from "@tutorify/shared";
 import { getNextSessionDate, getNextTimeSlot, getNextday, isValidTimeSlotDuration, sanitizeTimeSlot, setTimeToDate } from "../helpers";
 import { MultipleClassSessionsCreateDto } from "../dtos";
 import { Builder } from "builder-pattern";
 import { ClientProxy } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
-import { ClassSession, ClassSessionCreateArgs, ClassSessionVerificationUpdateArgs } from "../aggregates";
+import { ClassSession, ClassSessionCreateArgs, ClassSessionUpdateArgs, ClassSessionVerificationUpdateArgs } from "../aggregates";
 import { ClassSessionUpdateDto } from "../dtos/class-session-update.dto";
 import { ClassSessionReadService } from "./class-session.read.service";
+import { CLASS_SESSION_UPDATED_EVENT } from "src/events";
+import { ClassSessionCreateStatus, ClassSessionUpdateStatus } from "src/aggregates/enums";
 
 @Injectable()
 export class ClassSessionWriteService {
@@ -83,24 +85,24 @@ export class ClassSessionWriteService {
         data: ClassSessionVerificationUpdateArgs,
     ): Promise<ClassSession> {
         const classSession = await this.getSessionById(id);
-        classSession.update(data);
-        const userWithPublisher = this.eventStore.addPublisher(classSession);
-        await userWithPublisher.commitAndPublishToExternal();
+        classSession.updateVerification(data);
+        const sessionWithPublisher = this.eventStore.addPublisher(classSession);
+        await sessionWithPublisher.commitAndPublishToExternal();
         return classSession;
     }
 
     async updateClassSession(
         id: string,
         classSessionUpdateDto: ClassSessionUpdateDto,
-    ): Promise<ClassSession> {
+    ): Promise<ClassSessionUpdateArgs> {
         const { startDatetime, endDatetime, address, wardId, isOnline } = classSessionUpdateDto;
         const existingSession = await this.getSessionById(id);
-        if (!existingSession)
-            throw new NotFoundException(`Class session ${id} not found`);
+        this.checkModificationValidity(existingSession);
+
         const tempUpdatedSession = { ...existingSession };
         Object.assign(tempUpdatedSession, classSessionUpdateDto);
 
-        if (startDatetime || endDatetime) {
+        if (startDatetime !== undefined || endDatetime !== undefined) {
             // Verify if the updated timeslot long enough
             isValidTimeSlotDuration(tempUpdatedSession.startDatetime, tempUpdatedSession.endDatetime);
             const overlappedSession = await this.classSessionReadService.isSessionOverlap(
@@ -120,24 +122,71 @@ export class ClassSessionWriteService {
             }
         }
 
-        const { files, ...dataToUpdate } = classSessionUpdateDto;
+        // Update with new data
+        const { files, classSessionId, ...otherUpdateData } = classSessionUpdateDto;
+        const dataToUpdate = {
+            ...otherUpdateData,
+            updatedAt: new Date(),
+        }
         existingSession.update(dataToUpdate);
-        const userWithPublisher = this.eventStore.addPublisher(existingSession);
-        await userWithPublisher.commitAndPublishToExternal();
+
+        // Set status to UPDATE_PENDING AFTER (just a convention) calling updating
+        existingSession.updateVerification({
+            updateStatus: ClassSessionUpdateStatus.UPDATE_PENDING,
+            tutorVerified: false,
+        });
+
+        const sessionWithPublisher = this.eventStore.addPublisher(existingSession);
+        await sessionWithPublisher.commitAndPublishToExternal();
 
         // If there is any files
         if (files?.length > 0) {
             this.uploadAndAssignMaterialToSession(existingSession.id, files);
         }
 
-        return existingSession;
+        return dataToUpdate;
     }
 
     async getSessionById(id: string): Promise<ClassSession> {
-        // Load aggregate from event store
-        const events = await this.eventStore.findByAggregateRootId(ClassSession, id);
+        const events = await this.getAllEventsById(id);
         // Reconstitute aggregate
         return ClassSession.fromEvents(id, events);
+    }
+
+    async revertToLastUpdate(classSession: ClassSession) {
+        const sessionBeforeLastUpdate = await this.getSessionStateBeforeLastUpdate(classSession.id);
+        classSession.update(sessionBeforeLastUpdate);
+        const sessionWithPublisher = this.eventStore.addPublisher(classSession);
+        await sessionWithPublisher.commitAndPublishToExternal();
+    }
+
+    private async getAllEventsById(id: string): Promise<StoredEvent[]> {
+        // Load aggregate from event store
+        return this.eventStore.findByAggregateRootId(ClassSession, id);
+    }
+
+    // Note: 'Update' here doesn't count verification update
+    private async getSessionStateBeforeLastUpdate(id: string): Promise<ClassSession> {
+        const events = await this.getAllEventsById(id);
+
+        // Start iterating from the last event towards the first
+        for (let i = events.length - 1; i >= 0; i--) {
+            if (events[i].eventName === CLASS_SESSION_UPDATED_EVENT) {
+                const eventsListBeforeLastUpdate = events.slice(0, i);
+                return cleanAggregateObject(ClassSession.fromEvents(id, eventsListBeforeLastUpdate));
+            }
+        }
+
+        throw new NotFoundException(`Cannot find last update of class session ${id}`);
+    }
+
+    private checkModificationValidity(classSession: ClassSession) {
+        if (!classSession)
+            throw new NotFoundException(`Class session not found`);
+        if (classSession.createStatus !== ClassSessionCreateStatus.CREATED)
+            throw new BadRequestException(`You cannot modify a ${classSession.createStatus.toLowerCase()} class session`);
+        if (classSession.updateStatus !== ClassSessionUpdateStatus.UPDATED)
+            throw new BadRequestException(`You cannot modify a ${classSession.updateStatus.toLowerCase()} class session`);
     }
 
     private async createNew(data: ClassSessionCreateArgs): Promise<ClassSession> {
@@ -158,9 +207,10 @@ export class ClassSessionWriteService {
         const updatedMaterials = [...existingSession.materials, ...uploadedMaterialResults];
         existingSession.update({
             materials: updatedMaterials,
+            updatedAt: new Date(),
         })
-        const userWithPublisher = this.eventStore.addPublisher(existingSession);
-        await userWithPublisher.commitAndPublishToExternal();
+        const sessionWithPublisher = this.eventStore.addPublisher(existingSession);
+        await sessionWithPublisher.commitAndPublishToExternal();
     }
 
     private async uploadMultipleMaterials(
