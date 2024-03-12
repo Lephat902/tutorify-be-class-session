@@ -42,7 +42,7 @@ export class ClassSessionController {
     // Lock the mutex
     const release = await this.mutexService.acquireLockForClassSession(classSessionId);
     try {
-      return await this.classSessionWriteService.updateClassSession(classSessionId, classSessionUpdateDto);
+      return this.classSessionWriteService.updateClassSession(classSessionId, classSessionUpdateDto);
     } finally {
       // Release the mutex
       release();

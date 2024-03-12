@@ -6,7 +6,7 @@ import { MultipleClassSessionsCreateDto } from "../dtos";
 import { Builder } from "builder-pattern";
 import { ClientProxy } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
-import { ClassSession, ClassSessionCreateArgs, ClassSessionUpdateArgs, ClassSessionVerificationUpdateArgs } from "../aggregates";
+import { ClassSession, ClassSessionCreateArgs, ClassSessionVerificationUpdateArgs } from "../aggregates";
 import { ClassSessionUpdateDto } from "../dtos/class-session-update.dto";
 import { ClassSessionReadService } from "./class-session.read.service";
 import { CLASS_SESSION_UPDATED_EVENT } from "src/events";
@@ -21,7 +21,7 @@ export class ClassSessionWriteService {
         private readonly classSessionReadService: ClassSessionReadService,
     ) { }
 
-    async createMutiple(classSessionDto: MultipleClassSessionsCreateDto): Promise<ClassSessionCreateArgs[]> {
+    async createMutiple(classSessionDto: MultipleClassSessionsCreateDto): Promise<ClassSession[]> {
         const { classId, tutorId, isOnline, address, wardId, files } = classSessionDto;
         // Validate and prepare necessary data
         if (!validateClassAndSessionAddress(isOnline, address, wardId)) {
@@ -77,7 +77,7 @@ export class ClassSessionWriteService {
             await this.uploadAndAssignMaterialToSession(createdSessions[0].id, files);
         }
 
-        return validatedSessionsData;
+        return cleanAggregateObject(createdSessions);
     }
 
     async updateClassSessionVerification(
@@ -94,7 +94,7 @@ export class ClassSessionWriteService {
     async updateClassSession(
         id: string,
         classSessionUpdateDto: ClassSessionUpdateDto,
-    ): Promise<ClassSessionUpdateArgs> {
+    ): Promise<ClassSession> {
         const { startDatetime, endDatetime, address, wardId, isOnline } = classSessionUpdateDto;
         const existingSession = await this.getSessionById(id);
         this.checkModificationValidity(existingSession);
@@ -144,7 +144,7 @@ export class ClassSessionWriteService {
             this.uploadAndAssignMaterialToSession(existingSession.id, files);
         }
 
-        return dataToUpdate;
+        return cleanAggregateObject(existingSession);
     }
 
     async getSessionById(id: string): Promise<ClassSession> {
