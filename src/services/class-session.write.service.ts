@@ -25,7 +25,7 @@ export class ClassSessionWriteService {
         const { classId, tutorId, isOnline, address, wardId, files } = classSessionDto;
         // Validate and prepare necessary data
         if (!validateClassAndSessionAddress(isOnline, address, wardId)) {
-            throw new BadRequestException('Address & wardId is required for online class');
+            throw new BadRequestException('Address & wardId is required for non-online class');
         }
         const timeSlots = sanitizeTimeSlot(classSessionDto.timeSlots);
         let currentDate = new Date(classSessionDto.startDate ?? Date.now());
@@ -118,7 +118,7 @@ export class ClassSessionWriteService {
         // There is at least one change in address data set
         if (address !== undefined || wardId !== undefined || isOnline !== undefined) {
             if (!validateClassAndSessionAddress(tempUpdatedSession.isOnline, tempUpdatedSession.address, tempUpdatedSession.wardId)) {
-                throw new BadRequestException('Address & wardId is required for online class');
+                throw new BadRequestException('Address & wardId is required for non-online class');
             }
         }
 
@@ -147,6 +147,31 @@ export class ClassSessionWriteService {
         return cleanAggregateObject(existingSession);
     }
 
+    // Before the tutor is verified, the actual file will not be deleted
+    async deleteSingleMaterial(
+        tutorId: string,
+        classSessionId: string,
+        materialId: string,
+    ) {
+        const existingSession = await this.getSessionById(classSessionId);
+        const updatedMaterials = existingSession.materials.filter(material => material.id !== materialId);
+        existingSession.update({
+            tutorId,
+            materials: updatedMaterials,
+            updatedAt: new Date(),
+        });
+
+        // Set status to UPDATE_PENDING AFTER (just a convention) calling updating
+        existingSession.updateVerification({
+            updateStatus: ClassSessionUpdateStatus.UPDATE_PENDING,
+            tutorVerified: false,
+        });
+
+        const sessionWithPublisher = this.eventStore.addPublisher(existingSession);
+        await sessionWithPublisher.commitAndPublishToExternal();
+        return true;
+    }
+
     async getSessionById(id: string): Promise<ClassSession> {
         const events = await this.getAllEventsById(id);
         // Reconstitute aggregate
@@ -158,6 +183,17 @@ export class ClassSessionWriteService {
         classSession.update(sessionBeforeLastUpdate);
         const sessionWithPublisher = this.eventStore.addPublisher(classSession);
         await sessionWithPublisher.commitAndPublishToExternal();
+    }
+
+    async handleDeleteFileInStorage(classSessionId: string) {
+        const latestClassSessionMaterials = (await this.getSessionById(classSessionId)).materials;
+        const classSessionBeforeUpdateMaterials = (await this.getSessionStateBeforeLastUpdate(classSessionId)).materials;
+
+        const materialsToDeleteInStorage = classSessionBeforeUpdateMaterials.filter(item => !latestClassSessionMaterials.includes(item));
+
+        await Promise.allSettled(materialsToDeleteInStorage.map(material => 
+            this.deleteSingleFile(material.id)
+        ))
     }
 
     private async getAllEventsById(id: string): Promise<StoredEvent[]> {
@@ -206,6 +242,7 @@ export class ClassSessionWriteService {
         const existingSession = await this.getSessionById(classSessionId);
         const updatedMaterials = [...existingSession.materials, ...uploadedMaterialResults];
         existingSession.update({
+            tutorId: null,
             materials: updatedMaterials,
             updatedAt: new Date(),
         })
@@ -222,6 +259,17 @@ export class ClassSessionWriteService {
                 {
                     files,
                 },
+            ),
+        );
+    }
+
+    private async deleteSingleFile(
+        fileId: string,
+    ) {
+        return firstValueFrom(
+            this.fileClient.send(
+                { cmd: 'deleteSingleFile' },
+                fileId,
             ),
         );
     }

@@ -65,12 +65,18 @@ export class ClassSessionExternalEventHandler {
       const isCreatePending = classSession.createStatus === ClassSessionCreateStatus.CREATE_PENDING;
       const isUpdatePending = classSession.updateStatus === ClassSessionUpdateStatus.UPDATE_PENDING;
       const isUpdateFailed = classSession.updateStatus === ClassSessionUpdateStatus.FAILED;
+      const isUpdated = classSession.updateStatus === ClassSessionUpdateStatus.UPDATED;
 
       // If it's failed update then revert to as before last update
       if (isUpdateFailed) {
         console.log(`Starting revert class session ${classSessionId} to as before update`);
         await this.classSessionWriteService.revertToLastUpdate(classSession);
         return;
+      }
+
+      // Handle some stuffs after successful update
+      if (isUpdated) {
+        await this.classSessionWriteService.handleDeleteFileInStorage(classSessionId);
       }
 
       // The session is not _pending

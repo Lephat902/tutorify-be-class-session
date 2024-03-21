@@ -48,4 +48,18 @@ export class ClassSessionController {
       release();
     }
   }
+
+  @MessagePattern({ cmd: 'deleteSingleMaterial' })
+  async deleteSingleMaterial(
+    data: { tutorId: string, classSessionId: string, materialId: string },
+  ) {
+    // Lock the mutex
+    const release = await this.mutexService.acquireLockForClassSession(data.classSessionId);
+    try {
+      return this.classSessionWriteService.deleteSingleMaterial(data.tutorId, data.classSessionId, data.materialId);
+    } finally {
+      // Release the mutex
+      release();
+    }
+  }
 }

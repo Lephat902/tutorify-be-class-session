@@ -38,5 +38,5 @@ export class ClassSessionVerificationUpdateArgs extends PartialType(PickType(Cla
   ] as const
 )) { }
 export class ClassSessionMaterialsUpdateArgs extends PickType(ClassSession,
-  ['materials', 'updatedAt'] as const
+  ['materials', 'updatedAt', 'tutorId'] as const
 ) { }
