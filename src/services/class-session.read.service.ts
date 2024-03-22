@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { ClassSessionQueryDto } from '../dtos';
+import { ClassSessionQueryDto, ClassSessionResponse } from '../dtos';
 import { ClassSession } from '../read-repository/entities';
 import { ClassSessionReadRepository } from '../read-repository/class-session.read.repository';
+import { ClassSessionStatus } from '@tutorify/shared';
+import { LessThan } from 'typeorm';
 
 @Injectable()
 export class ClassSessionReadService {
@@ -9,16 +11,60 @@ export class ClassSessionReadService {
     private readonly classSessionReadRepository: ClassSessionReadRepository,
   ) { }
 
-  async getAllClassSessions(
+  async getClassSessionsAndTotalCount(
     filters: ClassSessionQueryDto,
-  ): Promise<ClassSession[]> {
-    return this.classSessionReadRepository.getAllClassSessions(filters);
+  ): Promise<{
+    totalCount: number,
+    results: ClassSessionResponse[],
+  }> {
+    const { results, totalCount } = await this.classSessionReadRepository.getAllClassSessions(filters);
+    return {
+      results: results.map(classSession => this.transformToClassSessionResponse(classSession)),
+      totalCount
+    }
   }
 
   async getClassSessionById(
     id: string,
-  ): Promise<ClassSession> {
-    return this.classSessionReadRepository.findOneBy({ id });
+  ): Promise<ClassSessionResponse> {
+    const classSession = await this.classSessionReadRepository.findOneBy({ id });
+    return this.transformToClassSessionResponse(classSession)
+  }
+
+  async getNonCancelledClassSessionsCount(classId: string): Promise<number> {
+    return this.classSessionReadRepository.count({
+      where: {
+        classId,
+        isCancelled: false,
+      },
+    });
+  }
+
+  async getScheduledClassSessionsCount(classId: string): Promise<number> {
+    const now = new Date();
+    return this.classSessionReadRepository.count({
+      where: {
+        classId,
+        isCancelled: false,
+        endDatetime: LessThan(now),
+      },
+    });
+  }
+
+  transformToClassSessionResponse(classSession: ClassSession): ClassSessionResponse {
+    const now = new Date();
+    let status: ClassSessionStatus;
+    if (classSession.isCancelled) {
+      status = ClassSessionStatus.CANCELLED;
+    } else if (classSession.endDatetime < now) {
+      status = ClassSessionStatus.CONCLUDED;
+    } else {
+      status = ClassSessionStatus.SCHEDULED;
+    }
+    return {
+      ...classSession,
+      status
+    }
   }
 
   async isSessionOverlap(

@@ -1,7 +1,6 @@
 import { Controller } from '@nestjs/common';
-import { ClassSession } from '../read-repository/entities/class-session.entity';
 import { ClassSessionWriteService, ClassSessionReadService } from 'src/services';
-import { MultipleClassSessionsCreateDto, ClassSessionQueryDto } from '../dtos';
+import { MultipleClassSessionsCreateDto, ClassSessionQueryDto, ClassSessionResponse } from '../dtos';
 import { MessagePattern } from '@nestjs/microservices';
 import { ClassSessionUpdateDto } from 'src/dtos/class-session-update.dto';
 import { MutexService } from 'src/mutexes';
@@ -14,16 +13,26 @@ export class ClassSessionController {
     private readonly mutexService: MutexService,
   ) { }
 
-  @MessagePattern({ cmd: 'getAllClassSessions' })
-  async getAllClassSessions(
+  @MessagePattern({ cmd: 'getClassSessionsAndTotalCount' })
+  async getClassSessionsAndTotalCount(
     filters: ClassSessionQueryDto,
-  ): Promise<ClassSession[]> {
-    return this.classSessionReadService.getAllClassSessions(filters);
+  ) {
+    return this.classSessionReadService.getClassSessionsAndTotalCount(filters);
   }
 
   @MessagePattern({ cmd: 'getClassSessionById' })
-  async getClassSessionById(classSessionId: string): Promise<ClassSession> {
+  async getClassSessionById(classSessionId: string): Promise<ClassSessionResponse> {
     return this.classSessionReadService.getClassSessionById(classSessionId);
+  }
+
+  @MessagePattern({ cmd: 'getNonCancelledClassSessionsCount' })
+  async getNonCancelledClassSessionsCount(classSessionId: string): Promise<number> {
+    return this.classSessionReadService.getNonCancelledClassSessionsCount(classSessionId);
+  }
+
+  @MessagePattern({ cmd: 'getScheduledClassSessionsCount' })
+  async getScheduledClassSessionsCount(classSessionId: string): Promise<number> {
+    return this.classSessionReadService.getScheduledClassSessionsCount(classSessionId);
   }
 
   @MessagePattern({ cmd: 'createClassSessions' })

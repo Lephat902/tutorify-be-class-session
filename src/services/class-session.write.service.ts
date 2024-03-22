@@ -95,7 +95,7 @@ export class ClassSessionWriteService {
         id: string,
         classSessionUpdateDto: ClassSessionUpdateDto,
     ): Promise<ClassSession> {
-        const { startDatetime, endDatetime, address, wardId, isOnline } = classSessionUpdateDto;
+        const { startDatetime, endDatetime, address, wardId, isOnline, isCancelled } = classSessionUpdateDto;
         const existingSession = await this.getSessionById(id);
         this.checkModificationValidity(existingSession);
 
@@ -119,6 +119,12 @@ export class ClassSessionWriteService {
         if (address !== undefined || wardId !== undefined || isOnline !== undefined) {
             if (!validateClassAndSessionAddress(tempUpdatedSession.isOnline, tempUpdatedSession.address, tempUpdatedSession.wardId)) {
                 throw new BadRequestException('Address & wardId is required for non-online class');
+            }
+        }
+
+        if (isCancelled !== undefined) {
+            if (isCancelled && tempUpdatedSession.endDatetime < new Date()) {
+                throw new BadRequestException("Cannot cancel ended class session");
             }
         }
 

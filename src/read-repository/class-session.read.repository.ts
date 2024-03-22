@@ -11,7 +11,10 @@ export class ClassSessionReadRepository extends Repository<ClassSession> {
 
   async getAllClassSessions(
     filters: ClassSessionQueryDto,
-  ): Promise<ClassSession[]> {
+  ): Promise<{
+    totalCount: number,
+    results: ClassSession[],
+  }> {
     const queryBuilder = this.createQueryBuilder('classSession');
 
     if (filters.classId) {
@@ -53,7 +56,8 @@ export class ClassSessionReadRepository extends Repository<ClassSession> {
       queryBuilder.skip((filters.page - 1) * filters.limit).take(filters.limit);
     }
 
-    return queryBuilder.getMany();
+    const [results, totalCount] = await queryBuilder.getManyAndCount();
+    return { results, totalCount };
   }
 
   async getSessionCountOfClass(classId: string): Promise<number> {

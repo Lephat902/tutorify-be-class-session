@@ -66,6 +66,7 @@ export class ClassSessionExternalEventHandler {
       const isUpdatePending = classSession.updateStatus === ClassSessionUpdateStatus.UPDATE_PENDING;
       const isUpdateFailed = classSession.updateStatus === ClassSessionUpdateStatus.FAILED;
       const isUpdated = classSession.updateStatus === ClassSessionUpdateStatus.UPDATED;
+      const isCreated = classSession.createStatus === ClassSessionCreateStatus.CREATED;
 
       // If it's failed update then revert to as before last update
       if (isUpdateFailed) {
@@ -74,8 +75,10 @@ export class ClassSessionExternalEventHandler {
         return;
       }
 
+      // NOTICE: a session has isUpdated true by default when created
+      // If the below expression doesn't include isCreated, it will encounter unexpected error when trying to get state before update
       // Handle some stuffs after successful update
-      if (isUpdated) {
+      if (isUpdated && isCreated) {
         await this.classSessionWriteService.handleDeleteFileInStorage(classSessionId);
       }
 
