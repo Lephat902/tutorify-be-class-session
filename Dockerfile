@@ -24,7 +24,7 @@ RUN npm ci
 COPY --chown=node:node . .
 
 # Use the node user from the image (instead of the root user)
-USER node
+# USER node
 
 # Default cmd to run dev (can be overwritten by external cmd)
 CMD [ "npm", "run", "start:dev" ]
