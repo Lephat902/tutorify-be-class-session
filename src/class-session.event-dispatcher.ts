@@ -2,8 +2,6 @@ import {
   BroadcastService,
   ClassSessionCreatedEvent,
   ClassSessionCreatedEventPayload,
-  MultipleClassSessionsCreatedEvent,
-  MultipleClassSessionsCreatedEventPayload,
   ClassSessionUpdatedEvent,
   ClassSessionUpdatedEventPayload,
   ClassSessionVerificationUpdatedEventPayload,
@@ -30,23 +28,6 @@ export class ClassSessionEventDispatcher {
       .createSessionTutorId(createSessionTutorId)
       .build();
     const event = new ClassSessionCreatedEvent(eventPayload);
-    this.broadcastService.broadcastEventToAllMicroservices(
-      event.pattern,
-      event.payload,
-    );
-  }
-
-  dispatchMultipleClassSessionsCreatedEvent(
-    createSessionTutorId: string,
-    newClassSessions: ClassSession[],
-  ) {
-    const newClassSessionsIds = newClassSessions.map(session => session.id);
-    const eventPayload = Builder<MultipleClassSessionsCreatedEventPayload>()
-      .classSessionIds(newClassSessionsIds)
-      .classId(newClassSessions[0].classId)
-      .createSessionTutorId(createSessionTutorId)
-      .build();
-    const event = new MultipleClassSessionsCreatedEvent(eventPayload);
     this.broadcastService.broadcastEventToAllMicroservices(
       event.pattern,
       event.payload,
