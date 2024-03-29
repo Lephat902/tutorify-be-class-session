@@ -13,7 +13,6 @@ export class ClassSessionQueryDto extends IntersectionType(
 ) {
   readonly q?: string;
   readonly classId?: string;
-  readonly isCancelled?: boolean;
   readonly order?: ClassSessionOrderBy;
   readonly startTime?: Date;
   readonly endTime?: Date;
