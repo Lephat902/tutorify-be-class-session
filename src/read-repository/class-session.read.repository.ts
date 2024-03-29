@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { ClassSession } from './entities/class-session.entity';
 import { ClassSessionQueryDto } from '../dtos';
+import { UserRole } from '@tutorify/shared';
 
 @Injectable()
 export class ClassSessionReadRepository extends Repository<ClassSession> {
@@ -15,12 +16,24 @@ export class ClassSessionReadRepository extends Repository<ClassSession> {
     totalCount: number,
     results: ClassSession[],
   }> {
-    const queryBuilder = this.createQueryBuilder('classSession');
+    const { userMakeRequest } = filters;
+    const { userRole, userId } = userMakeRequest;
+    const queryBuilder = this.createQueryBuilder('classSession')
+      .innerJoinAndSelect('classSession.class', 'class');
 
     if (filters.classId) {
-      queryBuilder.andWhere('classSession.classId = :classId', {
-        classId: filters.classId,
-      });
+      queryBuilder
+        .andWhere('class.classId = :classId', { classId: filters.classId });
+
+      if (userRole !== UserRole.ADMIN && userRole !== UserRole.MANAGER) {
+        // Ensure only student or tutor can get the sessions of this class
+        queryBuilder.andWhere('(class.studentId = :userId OR class.tutorId = :userId)', { userId });
+      }
+    } else if (userRole !== UserRole.ADMIN && userRole !== UserRole.MANAGER) {
+      console.log(userId);
+      // Non-admin users (student/tutor) get sessions based on their class
+      queryBuilder
+        .andWhere('class.studentId = :userId OR class.tutorId = :userId', { userId });
     }
 
     if (filters.q) {

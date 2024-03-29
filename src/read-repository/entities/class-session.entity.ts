@@ -2,17 +2,22 @@ import {
   Entity,
   Column,
   PrimaryColumn,
+  ManyToOne,
 } from 'typeorm';
 import { Geometry } from 'geojson';
 import { ClassSessionMaterial } from './class-session-material.entity';
+import { Class } from './class.entity';
 
 @Entity()
 export class ClassSession {
   @PrimaryColumn()
   id: string;
 
-  @Column()
-  classId: string;
+  @ManyToOne(() => Class, cl => cl.sessions)
+  class: Class;
+
+  // @Column()
+  // classId: string;
 
   @Column({ default: '' })
   description: string;
@@ -52,4 +57,7 @@ export class ClassSession {
 
   @Column({ default: '' })
   tutorFeedback: string;
+
+  @Column({ nullable: true })  
+  feedbackUpdatedAt: Date;
 }

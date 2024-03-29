@@ -1,5 +1,6 @@
+import { Class } from './class.entity';
 import { ClassSession } from './class-session.entity';
 
-export { ClassSession };
+export { ClassSession, Class };
 
-export const entities = [ClassSession];
+export const entities = [ClassSession, Class];

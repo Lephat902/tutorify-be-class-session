@@ -6,7 +6,7 @@ import { MultipleClassSessionsCreateDto } from "../dtos";
 import { Builder } from "builder-pattern";
 import { ClientProxy } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
-import { ClassSession, ClassSessionCreateArgs, ClassSessionVerificationUpdateArgs } from "../aggregates";
+import { ClassSession, ClassSessionCreateArgs, ClassSessionUpdateArgs, ClassSessionVerificationUpdateArgs } from "../aggregates";
 import { ClassSessionUpdateDto } from "../dtos/class-session-update.dto";
 import { ClassSessionReadService } from "./class-session.read.service";
 import { CLASS_SESSION_UPDATED_EVENT } from "src/events";
@@ -96,6 +96,7 @@ export class ClassSessionWriteService {
         classSessionUpdateDto: ClassSessionUpdateDto,
     ): Promise<ClassSession> {
         const { startDatetime, endDatetime, address, wardId, isOnline, isCancelled } = classSessionUpdateDto;
+        const now = new Date();
         const existingSession = await this.getSessionById(id);
         this.checkModificationValidity(existingSession);
 
@@ -123,17 +124,22 @@ export class ClassSessionWriteService {
         }
 
         if (isCancelled !== undefined) {
-            if (isCancelled && tempUpdatedSession.endDatetime < new Date()) {
+            if (isCancelled && tempUpdatedSession.endDatetime < now) {
                 throw new BadRequestException("Cannot cancel ended class session");
             }
         }
 
         // Update with new data
         const { files, classSessionId, ...otherUpdateData } = classSessionUpdateDto;
-        const dataToUpdate = {
+        const dataToUpdate: ClassSessionUpdateArgs = {
             ...otherUpdateData,
-            updatedAt: new Date(),
+            updatedAt: now,
+        };
+
+        if (dataToUpdate?.tutorFeedback) {
+            dataToUpdate.feedbackUpdatedAt = now;
         }
+
         existingSession.update(dataToUpdate);
 
         // Set status to UPDATE_PENDING AFTER (just a convention) calling updating
@@ -197,7 +203,7 @@ export class ClassSessionWriteService {
 
         const materialsToDeleteInStorage = classSessionBeforeUpdateMaterials.filter(item => !latestClassSessionMaterials.includes(item));
 
-        await Promise.allSettled(materialsToDeleteInStorage.map(material => 
+        await Promise.allSettled(materialsToDeleteInStorage.map(material =>
             this.deleteSingleFile(material.id)
         ))
     }

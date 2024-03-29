@@ -2,10 +2,12 @@ import {
   PaginationDto,
   SortingDirectionDto,
   ClassSessionOrderBy,
+  UserMakeRequest,
+  ClassSessionStatus,
 } from '@tutorify/shared';
 import { IntersectionType } from '@nestjs/mapped-types';
 
-class ClassSessionQueryDto extends IntersectionType(
+export class ClassSessionQueryDto extends IntersectionType(
   PaginationDto,
   SortingDirectionDto
 ) {
@@ -15,6 +17,6 @@ class ClassSessionQueryDto extends IntersectionType(
   readonly order?: ClassSessionOrderBy;
   readonly startTime?: Date;
   readonly endTime?: Date;
+  readonly statuses?: ClassSessionStatus[];
+  readonly userMakeRequest: UserMakeRequest;
 }
-
-export { ClassSessionQueryDto };

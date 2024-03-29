@@ -4,6 +4,7 @@ import { MultipleClassSessionsCreateDto, ClassSessionQueryDto, ClassSessionRespo
 import { MessagePattern } from '@nestjs/microservices';
 import { ClassSessionUpdateDto } from 'src/dtos/class-session-update.dto';
 import { MutexService } from 'src/mutexes';
+import { UserMakeRequest } from '@tutorify/shared';
 
 @Controller()
 export class ClassSessionController {
@@ -21,18 +22,27 @@ export class ClassSessionController {
   }
 
   @MessagePattern({ cmd: 'getClassSessionById' })
-  async getClassSessionById(classSessionId: string): Promise<ClassSessionResponse> {
-    return this.classSessionReadService.getClassSessionById(classSessionId);
+  async getClassSessionById(data: {
+    classSessionId: string,
+    userMakeRequest: UserMakeRequest
+  }): Promise<ClassSessionResponse> {
+    return this.classSessionReadService.getClassSessionById(data.classSessionId, data.userMakeRequest);
   }
 
   @MessagePattern({ cmd: 'getNonCancelledClassSessionsCount' })
-  async getNonCancelledClassSessionsCount(classSessionId: string): Promise<number> {
-    return this.classSessionReadService.getNonCancelledClassSessionsCount(classSessionId);
+  async getNonCancelledClassSessionsCount(data: {
+    classId: string,
+    userMakeRequest: UserMakeRequest
+  }): Promise<number> {
+    return this.classSessionReadService.getNonCancelledClassSessionsCount(data.classId, data.userMakeRequest);
   }
 
   @MessagePattern({ cmd: 'getScheduledClassSessionsCount' })
-  async getScheduledClassSessionsCount(classSessionId: string): Promise<number> {
-    return this.classSessionReadService.getScheduledClassSessionsCount(classSessionId);
+  async getScheduledClassSessionsCount(data: {
+    classId: string,
+    userMakeRequest: UserMakeRequest
+  }): Promise<number> {
+    return this.classSessionReadService.getScheduledClassSessionsCount(data.classId, data.userMakeRequest);
   }
 
   @MessagePattern({ cmd: 'createClassSessions' })

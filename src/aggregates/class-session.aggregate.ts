@@ -25,6 +25,7 @@ export class ClassSession extends AggregateRoot {
   public isOnline: boolean = true;
   public materials: ClassSessionMaterial[] = [];
   public tutorFeedback: string = '';
+  public feedbackUpdatedAt: Date = null;
   public createStatus: ClassSessionCreateStatus = ClassSessionCreateStatus.CREATE_PENDING;
   public updateStatus: ClassSessionUpdateStatus = ClassSessionUpdateStatus.UPDATED;
   public classVerified: boolean = false;

@@ -27,7 +27,12 @@ export class ClassSessionUpdateArgs extends IntersectionType(
     [
       'updatedAt'
     ] as const
-  )
+  ),
+  PartialType(PickType(ClassSession,
+    [
+      'feedbackUpdatedAt',
+    ] as const
+  ))
 ) { }
 export class ClassSessionVerificationUpdateArgs extends PartialType(PickType(ClassSession,
   [
