@@ -10,17 +10,17 @@ import {
   ClassSessionVerificationUpdatedEventPayload,
 } from '@tutorify/shared';
 import { ClassSessionWriteService } from 'src/services';
-import { Class, ClassSessionReadRepository } from 'src/read-repository';
+import { Class, ReadRepository } from 'src/read-repository';
 import { ClassSessionCreateStatus, ClassSessionUpdateStatus } from 'src/aggregates/enums';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 
 @Controller()
-export class ClassSessionReadRepositorySync {
+export class ReadRepositorySync {
   constructor(
     private readonly classSessionWriteService: ClassSessionWriteService,
     // access directly because the purpose is to sync to DB
-    private readonly classSessionReadRepository: ClassSessionReadRepository,
+    private readonly readRepository: ReadRepository,
     @InjectRepository(Class)
     private readonly classRepository: Repository<Class>,
   ) { }
@@ -39,11 +39,11 @@ export class ClassSessionReadRepositorySync {
       return;
     }
     console.log(`Start inserting/updating class session ${classSessionId} to read-database`);
-    const sessionToSave = this.classSessionReadRepository.create({
+    const sessionToSave = this.readRepository.create({
       ...classSession,
       id: classSessionId,
     });
-    await this.classSessionReadRepository.save(sessionToSave);
+    await this.readRepository.save(sessionToSave);
   }
 
   @EventPattern(new ClassCreatedEventPattern())

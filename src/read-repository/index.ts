@@ -1,2 +1,2 @@
-export * from './class-session.read.repository';
+export * from './read.repository';
 export * from './entities';

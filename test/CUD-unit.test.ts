@@ -5,7 +5,7 @@ import { MultipleClassSessionsCreateDto } from '../src/dtos';
 import { ApplicationStatus, BroadcastService } from '@tutorify/shared';
 import { v4 as uuidv4 } from 'uuid';
 import { ClassSession } from '../src/read-repository/entities/class-session.entity';
-import { ClassSessionRepository } from '../src/read-repository/class-session.read.repository';
+import { ClassSessionRepository } from '../src/read-repository/read.repository';
 import { seedData } from './seed-data';
 
 describe('ClassSessionService', () => {

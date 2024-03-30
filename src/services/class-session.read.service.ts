@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { ClassSessionQueryDto, ClassSessionResponse } from '../dtos';
-import { ClassSession } from '../read-repository/entities';
-import { ClassSessionReadRepository } from '../read-repository/class-session.read.repository';
+import { ClassQueryDto, ClassSessionQueryDto, ClassSessionResponse } from '../dtos';
+import { Class, ClassSession } from '../read-repository/entities';
+import { ReadRepository } from '../read-repository/read.repository';
 import { ClassSessionStatus, UserMakeRequest, UserRole } from '@tutorify/shared';
 
 @Injectable()
 export class ClassSessionReadService {
   constructor(
-    private readonly classSessionReadRepository: ClassSessionReadRepository,
+    private readonly readRepository: ReadRepository,
   ) { }
 
   async getClassSessionsAndTotalCount(
@@ -16,11 +16,20 @@ export class ClassSessionReadService {
     totalCount: number,
     results: ClassSessionResponse[],
   }> {
-    const { results, totalCount } = await this.classSessionReadRepository.getAllClassSessions(filters);
+    const { results, totalCount } = await this.readRepository.getAllClassSessions(filters);
     return {
       results: results.map(classSession => this.transformToClassSessionResponse(classSession)),
       totalCount
     }
+  }
+
+  async getUpcomingClasses(
+    filters: ClassQueryDto,
+  ): Promise<{
+    totalCount: number,
+    results: Class[],
+  }> {
+    return this.readRepository.getUpcomingClasses(filters);
   }
 
   async getClassSessionById(
@@ -28,7 +37,7 @@ export class ClassSessionReadService {
     userMakeRequest: UserMakeRequest,
   ): Promise<ClassSessionResponse> {
     const { userRole, userId } = userMakeRequest;
-    const classSessionQuery = this.classSessionReadRepository.createQueryBuilder('classSession')
+    const classSessionQuery = this.readRepository.createQueryBuilder('classSession')
       .innerJoinAndSelect('classSession.class', 'class')
       .andWhere('classSession.id = :id', { id });
     if (userRole === UserRole.STUDENT) {
@@ -47,7 +56,7 @@ export class ClassSessionReadService {
     userMakeRequest: UserMakeRequest,
   ): Promise<number> {
     const { userRole, userId } = userMakeRequest;
-    const classSessionQuery = this.classSessionReadRepository.createQueryBuilder('classSession')
+    const classSessionQuery = this.readRepository.createQueryBuilder('classSession')
       .innerJoinAndSelect('classSession.class', 'class')
       .andWhere('class.classId = :classId', { classId })
       .andWhere('classSession.isCancelled = :isCancelled', { isCancelled: false });
@@ -67,7 +76,7 @@ export class ClassSessionReadService {
     const { userRole, userId } = userMakeRequest;
     const now = new Date();
 
-    const classSessionQuery = this.classSessionReadRepository.createQueryBuilder('classSession')
+    const classSessionQuery = this.readRepository.createQueryBuilder('classSession')
       .innerJoin('classSession.class', 'class')
       .andWhere('class.classId = :classId', { classId })
       .andWhere('classSession.isCancelled = :isCancelled', { isCancelled: false })
@@ -105,7 +114,7 @@ export class ClassSessionReadService {
     startDatetime: Date,
     endDatetime: Date,
   ): Promise<ClassSession> {
-    const overlappingSession = await this.classSessionReadRepository
+    const overlappingSession = await this.readRepository
       .createQueryBuilder('session')
       .where('session.classId = :classId', { classId })
       .andWhere('session.startDatetime <= :endDatetime', { endDatetime })

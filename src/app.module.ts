@@ -4,9 +4,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   ClassSessionController,
   ClassSessionExternalEventHandler,
-  ClassSessionReadRepositorySync,
+  ReadRepositorySync,
 } from './controllers';
-import { ClassSessionReadRepository } from './read-repository';
+import { ReadRepository } from './read-repository';
 import { BroadcastModule, QueueNames } from '@tutorify/shared';
 import { entities } from './read-repository/entities';
 import { ClientsModule, Transport } from '@nestjs/microservices';
@@ -60,14 +60,14 @@ import { MutexService } from './mutexes';
   providers: [
     ClassSessionWriteService,
     ClassSessionReadService,
-    ClassSessionReadRepository,
+    ReadRepository,
     ClassSessionEventDispatcher,
     MutexService,
   ],
   controllers: [
     ClassSessionController,
     ClassSessionExternalEventHandler,
-    ClassSessionReadRepositorySync,
+    ReadRepositorySync,
   ],
 })
 export class AppModule { }

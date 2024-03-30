@@ -2,7 +2,7 @@ import { TestingModule } from '@nestjs/testing';
 import { ClassSessionService } from '../src/services';
 import { buildTestingModule } from './build-testing-module';
 import { BroadcastService } from '@tutorify/shared';
-import { ClassSessionRepository } from '../src/read-repository/class-session.read.repository';
+import { ClassSessionRepository } from '../src/read-repository/read.repository';
 import { seedData } from './seed-data';
 
 describe('ClassSessionService', () => {

@@ -1,6 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { ClassSessionWriteService, ClassSessionReadService } from 'src/services';
-import { MultipleClassSessionsCreateDto, ClassSessionQueryDto, ClassSessionResponse } from '../dtos';
+import { MultipleClassSessionsCreateDto, ClassSessionQueryDto, ClassSessionResponse, ClassQueryDto } from '../dtos';
 import { MessagePattern } from '@nestjs/microservices';
 import { ClassSessionUpdateDto } from 'src/dtos/class-session-update.dto';
 import { MutexService } from 'src/mutexes';
@@ -19,6 +19,13 @@ export class ClassSessionController {
     filters: ClassSessionQueryDto,
   ) {
     return this.classSessionReadService.getClassSessionsAndTotalCount(filters);
+  }
+
+  @MessagePattern({ cmd: 'getUpcomingClasses' })
+  async getUpcomingClasses(
+    filters: ClassQueryDto,
+  ) {
+    return this.classSessionReadService.getUpcomingClasses(filters);
   }
 
   @MessagePattern({ cmd: 'getClassSessionById' })

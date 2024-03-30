@@ -3,7 +3,7 @@ import { setupDataSource } from './setup-data-source';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClassSessionService } from '../src/services';
-import { ClassSessionRepository } from '../src/read-repository/class-session.read.repository';
+import { ClassSessionRepository } from '../src/read-repository/read.repository';
 import { CqrsModule } from '@nestjs/cqrs';
 import { BroadcastModule } from '@tutorify/shared';
 
