@@ -98,18 +98,23 @@ export class ClassSessionReadRepository extends Repository<ClassSession> {
   }
 
   private filterByStatus(query: SelectQueryBuilder<ClassSession>, statuses: ClassSessionStatus[] | undefined, now: Date) {
-    if (statuses?.includes(ClassSessionStatus.CANCELLED)) {
-      query.andWhere('classSession.isCancelled = :isCancelled', {
-        isCancelled: true,
-      });
-    }
+    const whereConditions: string[] = [];
 
-    if (statuses?.includes(ClassSessionStatus.CONCLUDED)) {
-      query.andWhere('classSession.endDatetime < :now', { now });
-    }
+    if (statuses) {
+      if (statuses.includes(ClassSessionStatus.CANCELLED)) {
+        whereConditions.push('(classSession.isCancelled = true)');
+      }
 
-    if (statuses?.includes(ClassSessionStatus.SCHEDULED)) {
-      query.andWhere('classSession.endDatetime >= :now', { now });
+      if (statuses.includes(ClassSessionStatus.CONCLUDED)) {
+        whereConditions.push('(classSession.endDatetime < :now AND classSession.isCancelled = false)');
+      }
+
+      if (statuses.includes(ClassSessionStatus.SCHEDULED)) {
+        whereConditions.push('(classSession.endDatetime >= :now AND classSession.isCancelled = false)');
+      }
+
+      const whereClause = whereConditions.join(' OR ');
+      query.andWhere(whereClause, { now });
     }
   }
 
