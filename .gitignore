@@ -9,6 +9,7 @@
 /.idea
 /.vscode
 *.code-workspace
+*.swp
 
 # Vim
  [._]*.s [a-v] [a-z]
@@ -47,4 +48,5 @@ build/config.gypi
 .npmrc
 pnpm-lock.yaml
 
+# others
 **/migrator.txt
