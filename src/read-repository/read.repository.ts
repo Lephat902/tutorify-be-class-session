@@ -61,7 +61,7 @@ export class ReadRepository extends Repository<ClassSession> {
     const { userRole, userId } = userMakeRequest;
     const now = new Date();
     const queryBuilder = this.dataSource.createQueryBuilder(Class, 'class')
-      .innerJoin('class.sessions', 'classSession');
+      .innerJoinAndSelect('class.sessions', 'classSession');
 
     this.filterByUserRole(queryBuilder, userRole, userId);
     this.filterByStartTime(queryBuilder, filters.startTime);
