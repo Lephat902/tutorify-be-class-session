@@ -1,3 +1,4 @@
+import { FileUploadResponseDto } from '@tutorify/shared';
 import { ClassTimeSlotDto } from './class.dto';
 
 export class MultipleClassSessionsCreateDto {
@@ -13,5 +14,5 @@ export class MultipleClassSessionsCreateDto {
   address: string;
   wardId: string;
   isOnline: boolean;
-  files: Array<Express.Multer.File>;
+  materials: FileUploadResponseDto[];
 }

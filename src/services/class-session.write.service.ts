@@ -1,28 +1,26 @@
 import { EVENT_STORE, EventStore, StoredEvent } from "@event-nest/core";
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { FileUploadResponseDto, QueueNames, cleanAggregateObject, validateClassAndSessionAddress } from "@tutorify/shared";
+import { cleanAggregateObject, validateClassAndSessionAddress } from "@tutorify/shared";
 import { getNextSessionDate, getNextTimeSlot, getNextday, isValidTimeSlotDuration, sanitizeTimeSlot, setTimeToDate } from "../helpers";
 import { MultipleClassSessionsCreateDto } from "../dtos";
 import { Builder } from "builder-pattern";
-import { ClientProxy } from "@nestjs/microservices";
-import { firstValueFrom } from "rxjs";
 import { ClassSession, ClassSessionCreateArgs, ClassSessionUpdateArgs, ClassSessionVerificationUpdateArgs } from "../aggregates";
 import { ClassSessionUpdateDto } from "../dtos/class-session-update.dto";
 import { ClassSessionReadService } from "./class-session.read.service";
 import { CLASS_SESSION_UPDATED_EVENT } from "src/events";
 import { ClassSessionCreateStatus, ClassSessionUpdateStatus } from "src/aggregates/enums";
+import { FileProxy } from "src/proxies";
 
 @Injectable()
 export class ClassSessionWriteService {
     constructor(
         @Inject(EVENT_STORE) private eventStore: EventStore,
-        @Inject(QueueNames.FILE)
-        private readonly fileClient: ClientProxy,
+        private readonly fileProxy: FileProxy,
         private readonly classSessionReadService: ClassSessionReadService,
     ) { }
 
     async createMutiple(classSessionDto: MultipleClassSessionsCreateDto): Promise<ClassSession[]> {
-        const { classId, tutorId, isOnline, address, wardId, files } = classSessionDto;
+        const { classId, tutorId, isOnline, address, wardId } = classSessionDto;
         // Validate and prepare necessary data
         if (!validateClassAndSessionAddress(isOnline, address, wardId)) {
             throw new BadRequestException('Address & wardId is required for non-online class');
@@ -71,11 +69,6 @@ export class ClassSessionWriteService {
 
         // Save sessions
         const createdSessions = await Promise.all(validatedSessionsData.map(data => this.createNew(data)));
-
-        // Upload and assign materials to the first session
-        if (createdSessions.length > 0 && files?.length > 0) {
-            await this.uploadAndAssignMaterialToSession(createdSessions[0].id, files);
-        }
 
         return cleanAggregateObject(createdSessions);
     }
@@ -130,7 +123,7 @@ export class ClassSessionWriteService {
         }
 
         // Update with new data
-        const { files, classSessionId, ...otherUpdateData } = classSessionUpdateDto;
+        const { classSessionId, ...otherUpdateData } = classSessionUpdateDto;
         const dataToUpdate: ClassSessionUpdateArgs = {
             ...otherUpdateData,
             updatedAt: now,
@@ -151,37 +144,7 @@ export class ClassSessionWriteService {
         const sessionWithPublisher = this.eventStore.addPublisher(existingSession);
         await sessionWithPublisher.commitAndPublishToExternal();
 
-        // If there is any files
-        if (files?.length > 0) {
-            this.uploadAndAssignMaterialToSession(existingSession.id, files);
-        }
-
         return cleanAggregateObject(existingSession);
-    }
-
-    // Before the tutor is verified, the actual file will not be deleted
-    async deleteSingleMaterial(
-        tutorId: string,
-        classSessionId: string,
-        materialId: string,
-    ) {
-        const existingSession = await this.getSessionById(classSessionId);
-        const updatedMaterials = existingSession.materials.filter(material => material.id !== materialId);
-        existingSession.update({
-            tutorId,
-            materials: updatedMaterials,
-            updatedAt: new Date(),
-        });
-
-        // Set status to UPDATE_PENDING AFTER (just a convention) calling updating
-        existingSession.updateVerification({
-            updateStatus: ClassSessionUpdateStatus.UPDATE_PENDING,
-            tutorVerified: false,
-        });
-
-        const sessionWithPublisher = this.eventStore.addPublisher(existingSession);
-        await sessionWithPublisher.commitAndPublishToExternal();
-        return true;
     }
 
     async getSessionById(id: string): Promise<ClassSession> {
@@ -201,11 +164,15 @@ export class ClassSessionWriteService {
         const latestClassSessionMaterials = (await this.getSessionById(classSessionId)).materials;
         const classSessionBeforeUpdateMaterials = (await this.getSessionStateBeforeLastUpdate(classSessionId)).materials;
 
-        const materialsToDeleteInStorage = classSessionBeforeUpdateMaterials.filter(item => !latestClassSessionMaterials.includes(item));
-
-        await Promise.allSettled(materialsToDeleteInStorage.map(material =>
-            this.deleteSingleFile(material.id)
-        ))
+        const materialsToDeleteInStorage = classSessionBeforeUpdateMaterials
+            .filter(oldMaterial =>
+                !latestClassSessionMaterials.some(updatedMaterial =>
+                    oldMaterial.id === updatedMaterial.id
+                )
+            );
+        await this.fileProxy.deleteMultipleFiles(
+            materialsToDeleteInStorage.map(material => material.id)
+        )
     }
 
     private async getAllEventsById(id: string): Promise<StoredEvent[]> {
@@ -242,47 +209,5 @@ export class ClassSessionWriteService {
         const sessionWithPublisher = this.eventStore.addPublisher(session);
         await sessionWithPublisher.commitAndPublishToExternal();
         return session;
-    }
-
-    private async uploadAndAssignMaterialToSession(
-        classSessionId: string,
-        files: Array<Express.Multer.File>,
-    ) {
-        const uploadedMaterialResults = await this.uploadMultipleMaterials(files);
-        console.log(uploadedMaterialResults);
-
-        const existingSession = await this.getSessionById(classSessionId);
-        const updatedMaterials = [...existingSession.materials, ...uploadedMaterialResults];
-        existingSession.update({
-            tutorId: null,
-            materials: updatedMaterials,
-            updatedAt: new Date(),
-        })
-        const sessionWithPublisher = this.eventStore.addPublisher(existingSession);
-        await sessionWithPublisher.commitAndPublishToExternal();
-    }
-
-    private async uploadMultipleMaterials(
-        files: Array<Express.Multer.File>,
-    ): Promise<FileUploadResponseDto[]> {
-        return firstValueFrom(
-            this.fileClient.send<FileUploadResponseDto[]>(
-                { cmd: 'uploadMultipleFiles' },
-                {
-                    files,
-                },
-            ),
-        );
-    }
-
-    private async deleteSingleFile(
-        fileId: string,
-    ) {
-        return firstValueFrom(
-            this.fileClient.send(
-                { cmd: 'deleteSingleFile' },
-                fileId,
-            ),
-        );
     }
 }

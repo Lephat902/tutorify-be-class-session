@@ -19,7 +19,6 @@ export class ClassSessionCreateArgs extends PickType(ClassSession,
 export class ClassSessionUpdateArgs extends IntersectionType(
   OmitType(ClassSessionUpdateDto,
     [
-      'files',
       'classSessionId'
     ] as const
   ),

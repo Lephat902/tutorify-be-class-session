@@ -1,11 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import {
-  ClassSessionController,
-  ClassSessionExternalEventHandler,
-  ReadRepositorySync,
-} from './controllers';
+import { Controllers } from './controllers';
 import { ReadRepository } from './read-repository';
 import { BroadcastModule, QueueNames } from '@tutorify/shared';
 import { entities } from './read-repository/entities';
@@ -14,6 +10,7 @@ import { ClassSessionEventDispatcher } from './class-session.event-dispatcher';
 import { EventNestMongoDbModule } from '@event-nest/mongodb';
 import { ClassSessionReadService, ClassSessionWriteService } from './services';
 import { MutexService } from './mutexes';
+import { Proxies } from './proxies';
 
 @Module({
   imports: [
@@ -63,11 +60,8 @@ import { MutexService } from './mutexes';
     ReadRepository,
     ClassSessionEventDispatcher,
     MutexService,
+    ...Proxies,
   ],
-  controllers: [
-    ClassSessionController,
-    ClassSessionExternalEventHandler,
-    ReadRepositorySync,
-  ],
+  controllers: Controllers,
 })
 export class AppModule { }

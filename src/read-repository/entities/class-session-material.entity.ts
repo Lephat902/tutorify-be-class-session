@@ -1,6 +1,3 @@
-export class ClassSessionMaterial {
-  id: string;
-  url: string;
-  title: string;
-  size: number;
-}
+import { FileUploadResponseDto } from "@tutorify/shared";
+
+export class ClassSessionMaterial extends FileUploadResponseDto { }
