@@ -32,35 +32,26 @@ CMD [ "npm", "run", "start:dev" ]
 
 FROM development AS build
 
-WORKDIR /usr/src/app
-
-COPY --chown=node:node package*.json ./
-
-# Copy temp 'shared' dir
-COPY --chown=node:node ./shared /usr/src/shared
-
-COPY --chown=node:node . .
-
-# the 'npm ci' cmd requires root access
-USER root
+# Set NODE_ENV environment variable
+ENV NODE_ENV production
 
 # Switch to shared dir
 WORKDIR /usr/src/shared
 
-# Install packages
+# Copy temp 'shared' dir
+COPY --chown=node:node ./shared .
+
+# Install packages of shared dir for 'npm run build' below to succeed, those packages will not be included in built image
 RUN npm ci --only=production
 
-# Switch back to app dir
+# Switch to app dir
 WORKDIR /usr/src/app
 
 # Run the build command which creates the production bundle
 RUN npm run build
 
-# Set NODE_ENV environment variable
-ENV NODE_ENV production
-
-# Running `npm ci` removes the existing node_modules directory and passing in --only=production ensures that only the production dependencies are installed. This ensures that the node_modules directory is AS optimized AS possible
-RUN npm ci --only=production
+# Remove devDependencies packages
+RUN npm prune --production
 
 USER node
 
@@ -73,6 +64,9 @@ FROM base AS production
 # Copy the bundled code from the build stage to the production image
 COPY --chown=node:node --from=build /usr/src/app/node_modules ./node_modules
 COPY --chown=node:node --from=build /usr/src/app/dist ./dist
+
+# Switch to user node for security
+USER node
 
 # Start the server using the production build
 CMD [ "node", "dist/app/src/main.js" ]
