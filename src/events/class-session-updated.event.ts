@@ -1,17 +1,17 @@
 import { DomainEvent } from "@event-nest/core";
 import { IntersectionType } from "@nestjs/mapped-types";
-import { ClassSessionMaterialsUpdateArgs, ClassSessionUpdateArgs } from "src/aggregates/args";
+import { ClassSessionAddressUpdateArgs, ClassSessionUpdateArgs } from "src/aggregates/args";
 
 export const CLASS_SESSION_UPDATED_EVENT = 'class-session-updated-event';
 
 @DomainEvent('class-session-updated-event')
 export class ClassSessionUpdatedEvent extends IntersectionType(
     ClassSessionUpdateArgs,
-    ClassSessionMaterialsUpdateArgs,
+    ClassSessionAddressUpdateArgs,
 ) {
     constructor(data:
         ClassSessionUpdateArgs |
-        ClassSessionMaterialsUpdateArgs,
+        ClassSessionAddressUpdateArgs,
     ) {
         super();
         Object.assign(this, data);

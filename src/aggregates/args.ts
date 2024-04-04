@@ -41,6 +41,6 @@ export class ClassSessionVerificationUpdateArgs extends PartialType(PickType(Cla
     'updateStatus'
   ] as const
 )) { }
-export class ClassSessionMaterialsUpdateArgs extends PickType(ClassSession,
-  ['materials', 'updatedAt', 'tutorId'] as const
+export class ClassSessionAddressUpdateArgs extends PickType(ClassSession,
+  ['isOnline', 'address', 'wardId'] as const
 ) { }

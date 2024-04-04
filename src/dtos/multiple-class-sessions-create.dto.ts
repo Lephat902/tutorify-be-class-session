@@ -17,5 +17,7 @@ export class MultipleClassSessionsCreateDto {
   address: string;
   wardId: string;
   isOnline: boolean;
+  @Type(() => FileUploadResponseDto)
   materials: FileUploadResponseDto[];
+  useDefaultAddress: boolean;
 }

@@ -16,7 +16,7 @@ export class ClassSession {
   @ManyToOne(() => Class, cl => cl.sessions)
   class: Class;
 
-  @Column({ default: '' })
+  @Column({ default: '', nullable: true })
   description: string;
 
   @Column({ default: '' })
@@ -46,7 +46,7 @@ export class ClassSession {
   @Column({ type: 'geometry', spatialFeatureType: 'Point', nullable: true })
   location: Geometry;
 
-  @Column({ default: false })
+  @Column({ nullable: true })
   isOnline: boolean;
 
   @Column({ type: 'jsonb', default: '[]' })

@@ -10,6 +10,7 @@ import { ClassSessionReadService } from "./class-session.read.service";
 import { CLASS_SESSION_UPDATED_EVENT } from "src/events";
 import { ClassSessionCreateStatus, ClassSessionUpdateStatus } from "src/aggregates/enums";
 import { FileProxy } from "src/proxies";
+import { ClassSessionEventDispatcher } from "src/class-session.event-dispatcher";
 
 @Injectable()
 export class ClassSessionWriteService {
@@ -17,47 +18,40 @@ export class ClassSessionWriteService {
         @Inject(EVENT_STORE) private eventStore: EventStore,
         private readonly fileProxy: FileProxy,
         private readonly classSessionReadService: ClassSessionReadService,
+        private readonly classSessionEventDispatcher: ClassSessionEventDispatcher,
     ) { }
 
     async createMutiple(classSessionDto: MultipleClassSessionsCreateDto): Promise<ClassSession[]> {
-        const { classId, isOnline, address, wardId } = classSessionDto;
+        const { classId, isOnline, address, wardId, useDefaultAddress } = classSessionDto;
+        const { endDateForRecurringSessions = null, numberOfSessionsToCreate = 1 } = classSessionDto;
         // Validate and prepare necessary data
-        if (!validateClassAndSessionAddress(isOnline, address, wardId)) {
+        if (!validateClassAndSessionAddress(isOnline, address, wardId, useDefaultAddress)) {
             throw new BadRequestException('Address & wardId is required for non-online class');
         }
         const timeSlots = sanitizeTimeSlot(classSessionDto.timeSlots);
         let currentDate = classSessionDto.startDate ?? new Date();
 
         const validatedSessionsData: ClassSessionCreateArgs[] = [];
-        const endDateForRecurringSessions = new Date(classSessionDto?.endDateForRecurringSessions);
         for (
             let i = 0;
-            i < classSessionDto?.numberOfSessionsToCreate ||
-            currentDate.getDate() <= endDateForRecurringSessions?.getDate();
+            this.shouldContinueCreatingSessions(i, numberOfSessionsToCreate, currentDate, endDateForRecurringSessions);
             ++i
         ) {
             const [startDatetime, endDatetime] = getNextSessionDateTime(currentDate, timeSlots);
 
-            // If numberOfSessionsToCreate not specified
-            if (!classSessionDto?.numberOfSessionsToCreate
-                && endDatetime.getDate() > endDateForRecurringSessions.getDate())
+            if (endDatetime.getDate() > endDateForRecurringSessions?.getDate())
                 break;
 
-            if (await this.classSessionReadService.isSessionOverlap(classId, startDatetime, endDatetime))
-                continue;
-
-            const newSession = this.buildSessionCreateArgs(i, classSessionDto, startDatetime, endDatetime);
-
-            validatedSessionsData.push(newSession);
+            if (!(await this.classSessionReadService.isSessionOverlap(classId, startDatetime, endDatetime))) {
+                const newSession = this.buildSessionCreateArgs(i, classSessionDto, startDatetime, endDatetime, useDefaultAddress);
+                validatedSessionsData.push(newSession);
+            }
             currentDate = getNextday(startDatetime);
         }
 
         // In case there is just one session created, it datetime should be the startDate specified in the dto
         // Timeslots only take effect if loop creation is desired
-        if (validatedSessionsData.length === 1) {
-            // Set that only session to startDate
-            this.setSessionDate(validatedSessionsData[0], classSessionDto.startDate ?? new Date());
-        }
+        await this.handleSingleSessionCase(validatedSessionsData, classSessionDto);
 
         // Save sessions
         const createdSessions = await Promise.all(validatedSessionsData.map(data => this.createNew(data)));
@@ -103,6 +97,33 @@ export class ClassSessionWriteService {
         return cleanAggregateObject(existingSession);
     }
 
+    queryClassSessionAddress(
+        existingSession: ClassSession
+    ) {
+        const { isOnline, wardId } = existingSession;
+        const needDefaultAddress = !isOnline && !wardId;
+        console.log("Current address state: ", isOnline, wardId);
+        if (needDefaultAddress) {
+            console.log("Update address to class default");
+            this.classSessionEventDispatcher.dispatchDefaultAddressQueryEvent(existingSession);
+        }
+    }
+
+    async updateClassSessionAddressBySystem(
+        id: string,
+        addressData: Pick<ClassSessionUpdateDto, 'isOnline' | 'address' | 'wardId'>,
+    ): Promise<ClassSession> {
+        const existingSession = await this.getSessionById(id);
+        this.checkModificationValidity(existingSession);
+
+        existingSession.update(addressData);
+
+        const sessionWithPublisher = this.eventStore.addPublisher(existingSession);
+        await sessionWithPublisher.commitAndPublishToExternal();
+
+        return cleanAggregateObject(existingSession);
+    }
+
     async getSessionById(id: string): Promise<ClassSession> {
         const events = await this.getAllEventsById(id);
         // Reconstitute aggregate
@@ -117,8 +138,13 @@ export class ClassSessionWriteService {
     }
 
     async handleDeleteFileInStorage(classSessionId: string) {
-        const latestClassSessionMaterials = (await this.getSessionById(classSessionId)).materials;
-        const classSessionBeforeUpdateMaterials = (await this.getSessionStateBeforeLastUpdate(classSessionId)).materials;
+        const latestClassSessionMaterials = (await this.getSessionById(classSessionId))?.materials;
+        const classSessionBeforeUpdateMaterials = (await this.getSessionStateBeforeLastUpdate(classSessionId))?.materials;
+
+        // No need to clean up
+        if (!(latestClassSessionMaterials?.length && classSessionBeforeUpdateMaterials?.length)) {
+            return;
+        }
 
         const materialsToDeleteInStorage = classSessionBeforeUpdateMaterials
             .filter(oldMaterial =>
@@ -126,9 +152,11 @@ export class ClassSessionWriteService {
                     oldMaterial.id === updatedMaterial.id
                 )
             );
-        await this.fileProxy.deleteMultipleFiles(
-            materialsToDeleteInStorage.map(material => material.id)
-        )
+        if (materialsToDeleteInStorage.length) {
+            await this.fileProxy.deleteMultipleFiles(
+                materialsToDeleteInStorage.map(material => material.id)
+            );
+        }
     }
 
     private async getAllEventsById(id: string): Promise<StoredEvent[]> {
@@ -148,7 +176,7 @@ export class ClassSessionWriteService {
             }
         }
 
-        throw new NotFoundException(`Cannot find last update of class session ${id}`);
+        return null;
     }
 
     private checkModificationValidity(classSession: ClassSession) {
@@ -171,7 +199,8 @@ export class ClassSessionWriteService {
         ith: number,
         classSessionDto: MultipleClassSessionsCreateDto,
         startDatetime: Date,
-        endDatetime: Date
+        endDatetime: Date,
+        useDefaultAddress: boolean,
     ): ClassSessionCreateArgs {
         const titleSuffix = ith === 0 ? '' : ` ${ith}`;
         return Builder<ClassSessionCreateArgs>()
@@ -182,10 +211,29 @@ export class ClassSessionWriteService {
             .createdAt(new Date())
             .startDatetime(startDatetime)
             .endDatetime(endDatetime)
-            .address(classSessionDto.address)
-            .wardId(classSessionDto.wardId)
-            .isOnline(classSessionDto.isOnline)
+            .address(useDefaultAddress ? null : classSessionDto.address)
+            .wardId(useDefaultAddress ? null : classSessionDto.wardId)
+            .isOnline(useDefaultAddress ? null : classSessionDto.isOnline)
             .build();
+    }
+
+    private shouldContinueCreatingSessions(i: number, numberOfSessionsToCreate: number, currentDate: Date, endDateForRecurringSessions: Date) {
+        return i < numberOfSessionsToCreate || currentDate.getDate() <= endDateForRecurringSessions?.getDate();
+    }
+
+    private async handleSingleSessionCase(validatedSessionsData: ClassSessionCreateArgs[], classSessionDto: MultipleClassSessionsCreateDto) {
+        if (validatedSessionsData.length === 1) {
+            const onlySession = validatedSessionsData[0];
+            this.setSessionDate(onlySession, classSessionDto.startDate ?? new Date());
+            const overlappedSession = await this.classSessionReadService.isSessionOverlap(
+                classSessionDto.classId,
+                onlySession.startDatetime,
+                onlySession.endDatetime,
+            );
+            if (overlappedSession) {
+                throw new BadRequestException(`This session overlap timeslot of session ${overlappedSession.id}`);
+            }
+        }
     }
 
     // Note that it's only date, not time
@@ -200,7 +248,7 @@ export class ClassSessionWriteService {
     }
 
     private async validateSessionUpdate(existingSession: ClassSession, classSessionUpdateDto: ClassSessionUpdateDto) {
-        const { startDatetime, endDatetime, address, wardId, isOnline, isCancelled } = classSessionUpdateDto;
+        const { startDatetime, endDatetime, address, wardId, isOnline, useDefaultAddress, isCancelled } = classSessionUpdateDto;
         const now = new Date();
 
         const tempUpdatedSession = { ...existingSession };
@@ -221,7 +269,12 @@ export class ClassSessionWriteService {
 
         // There is at least one change in address data set
         if (address !== undefined || wardId !== undefined || isOnline !== undefined) {
-            if (!validateClassAndSessionAddress(tempUpdatedSession.isOnline, tempUpdatedSession.address, tempUpdatedSession.wardId)) {
+            if (!validateClassAndSessionAddress(
+                tempUpdatedSession.isOnline,
+                tempUpdatedSession.address,
+                tempUpdatedSession.wardId,
+                useDefaultAddress
+            )) {
                 throw new BadRequestException('Address & wardId is required for non-online class');
             }
         }
@@ -239,11 +292,15 @@ export class ClassSessionWriteService {
             ...otherUpdateData,
             updatedAt: now,
         };
-    
+
         if (dataToUpdate?.tutorFeedback) {
             dataToUpdate.feedbackUpdatedAt = now;
         }
-    
+
+        if (classSessionUpdateDto.useDefaultAddress) {
+            dataToUpdate.isOnline = dataToUpdate.address = dataToUpdate.wardId = null;
+        }
+
         return dataToUpdate;
-    }    
+    }
 }

@@ -6,6 +6,8 @@ import {
   ClassSessionUpdatedEventPayload,
   ClassSessionVerificationUpdatedEventPayload,
   ClassSessionVerificationUpdatedEvent,
+  ClassSessionDefaultAddressQueryEventPayload,
+  ClassSessionDefaultAddressQueryEvent,
 } from '@tutorify/shared';
 import { Builder } from 'builder-pattern';
 import { Injectable } from '@nestjs/common';
@@ -13,7 +15,7 @@ import { ClassSession } from './aggregates';
 
 @Injectable()
 export class ClassSessionEventDispatcher {
-  constructor(private readonly broadcastService: BroadcastService) {}
+  constructor(private readonly broadcastService: BroadcastService) { }
 
   dispatchClassSessionCreatedEvent(
     createSessionTutorId: string,
@@ -38,14 +40,12 @@ export class ClassSessionEventDispatcher {
     updateSessionTutorId: string,
     updatedClassSession: ClassSession,
   ) {
-    const { id, updatedAt, address, wardId, classId } = updatedClassSession;
+    const { id, updatedAt, classId } = updatedClassSession;
     const eventPayload = Builder<ClassSessionUpdatedEventPayload>()
       .updateSessionTutorId(updateSessionTutorId)
       .classId(classId)
       .classSessionId(id)
       .updatedAt(updatedAt)
-      .address(address)
-      .wardId(wardId)
       .build();
     const event = new ClassSessionUpdatedEvent(eventPayload);
     this.broadcastService.broadcastEventToAllMicroservices(
@@ -61,6 +61,19 @@ export class ClassSessionEventDispatcher {
       .classSessionId(classSessionId)
       .build();
     const event = new ClassSessionVerificationUpdatedEvent(eventPayload);
+    this.broadcastService.broadcastEventToAllMicroservices(
+      event.pattern,
+      event.payload,
+    );
+  }
+
+  dispatchDefaultAddressQueryEvent(classSession: ClassSession) {
+    const { id, classId } = classSession;
+    const eventPayload = Builder<ClassSessionDefaultAddressQueryEventPayload>()
+      .classSessionId(id)
+      .classId(classId)
+      .build();
+    const event = new ClassSessionDefaultAddressQueryEvent(eventPayload);
     this.broadcastService.broadcastEventToAllMicroservices(
       event.pattern,
       event.payload,
