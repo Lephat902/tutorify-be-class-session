@@ -1,7 +1,7 @@
 import { EVENT_STORE, EventStore, StoredEvent } from "@event-nest/core";
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { cleanAggregateObject, validateClassAndSessionAddress } from "@tutorify/shared";
-import { getNextSessionDate, getNextTimeSlot, getNextday, isValidTimeSlotDuration, sanitizeTimeSlot, setTimeToDate } from "../helpers";
+import { getNextSessionDateTime, getNextday, isValidTimeSlotDuration, sanitizeTimeSlot } from "../helpers";
 import { MultipleClassSessionsCreateDto } from "../dtos";
 import { Builder } from "builder-pattern";
 import { ClassSession, ClassSessionCreateArgs, ClassSessionUpdateArgs, ClassSessionVerificationUpdateArgs } from "../aggregates";
@@ -20,51 +20,43 @@ export class ClassSessionWriteService {
     ) { }
 
     async createMutiple(classSessionDto: MultipleClassSessionsCreateDto): Promise<ClassSession[]> {
-        const { classId, tutorId, isOnline, address, wardId } = classSessionDto;
+        const { classId, isOnline, address, wardId } = classSessionDto;
         // Validate and prepare necessary data
         if (!validateClassAndSessionAddress(isOnline, address, wardId)) {
             throw new BadRequestException('Address & wardId is required for non-online class');
         }
         const timeSlots = sanitizeTimeSlot(classSessionDto.timeSlots);
-        let currentDate = new Date(classSessionDto.startDate ?? Date.now());
+        let currentDate = classSessionDto.startDate ?? new Date();
 
         const validatedSessionsData: ClassSessionCreateArgs[] = [];
         const endDateForRecurringSessions = new Date(classSessionDto?.endDateForRecurringSessions);
         for (
             let i = 0;
             i < classSessionDto?.numberOfSessionsToCreate ||
-            currentDate <= endDateForRecurringSessions;
+            currentDate.getDate() <= endDateForRecurringSessions?.getDate();
             ++i
         ) {
-            const nextTimeSlot = getNextTimeSlot(timeSlots, currentDate);
-            const nextSessionDate = getNextSessionDate(currentDate, nextTimeSlot);
-            const startDatetime = setTimeToDate(nextSessionDate, nextTimeSlot.startTime);
-            const endDatetime = setTimeToDate(nextSessionDate, nextTimeSlot.endTime);
+            const [startDatetime, endDatetime] = getNextSessionDateTime(currentDate, timeSlots);
 
             // If numberOfSessionsToCreate not specified
-            if (
-                !classSessionDto?.numberOfSessionsToCreate
-                && endDatetime > endDateForRecurringSessions)
+            if (!classSessionDto?.numberOfSessionsToCreate
+                && endDatetime.getDate() > endDateForRecurringSessions.getDate())
                 break;
 
             if (await this.classSessionReadService.isSessionOverlap(classId, startDatetime, endDatetime))
                 continue;
 
-            const titleSuffix = i === 0 ? '' : ` ${i}`;
-            const newSession = Builder<ClassSessionCreateArgs>()
-                .tutorId(tutorId)
-                .classId(classId)
-                .description(i === 0 ? classSessionDto?.description : '')
-                .title(`${classSessionDto.title}${titleSuffix}`)
-                .createdAt(new Date())
-                .startDatetime(startDatetime)
-                .endDatetime(endDatetime)
-                .address(classSessionDto.address)
-                .wardId(classSessionDto.wardId)
-                .isOnline(classSessionDto.isOnline)
-                .build();
+            const newSession = this.buildSessionCreateArgs(i, classSessionDto, startDatetime, endDatetime);
+
             validatedSessionsData.push(newSession);
-            currentDate = getNextday(nextSessionDate);
+            currentDate = getNextday(startDatetime);
+        }
+
+        // In case there is just one session created, it datetime should be the startDate specified in the dto
+        // Timeslots only take effect if loop creation is desired
+        if (validatedSessionsData.length === 1) {
+            // Set that only session to startDate
+            this.setSessionDate(validatedSessionsData[0], classSessionDto.startDate ?? new Date());
         }
 
         // Save sessions
@@ -88,50 +80,14 @@ export class ClassSessionWriteService {
         id: string,
         classSessionUpdateDto: ClassSessionUpdateDto,
     ): Promise<ClassSession> {
-        const { startDatetime, endDatetime, address, wardId, isOnline, isCancelled } = classSessionUpdateDto;
         const now = new Date();
         const existingSession = await this.getSessionById(id);
         this.checkModificationValidity(existingSession);
 
-        const tempUpdatedSession = { ...existingSession };
-        Object.assign(tempUpdatedSession, classSessionUpdateDto);
-
-        if (startDatetime !== undefined || endDatetime !== undefined) {
-            // Verify if the updated timeslot long enough
-            isValidTimeSlotDuration(tempUpdatedSession.startDatetime, tempUpdatedSession.endDatetime);
-            const overlappedSession = await this.classSessionReadService.isSessionOverlap(
-                tempUpdatedSession.classId,
-                startDatetime,
-                endDatetime,
-            );
-            if (overlappedSession) {
-                throw new BadRequestException(`Updated session timeslot overlaps session ${overlappedSession.id}`);
-            }
-        }
-
-        // There is at least one change in address data set
-        if (address !== undefined || wardId !== undefined || isOnline !== undefined) {
-            if (!validateClassAndSessionAddress(tempUpdatedSession.isOnline, tempUpdatedSession.address, tempUpdatedSession.wardId)) {
-                throw new BadRequestException('Address & wardId is required for non-online class');
-            }
-        }
-
-        if (isCancelled !== undefined) {
-            if (isCancelled && tempUpdatedSession.endDatetime < now) {
-                throw new BadRequestException("Cannot cancel ended class session");
-            }
-        }
+        await this.validateSessionUpdate(existingSession, classSessionUpdateDto);
 
         // Update with new data
-        const { classSessionId, ...otherUpdateData } = classSessionUpdateDto;
-        const dataToUpdate: ClassSessionUpdateArgs = {
-            ...otherUpdateData,
-            updatedAt: now,
-        };
-
-        if (dataToUpdate?.tutorFeedback) {
-            dataToUpdate.feedbackUpdatedAt = now;
-        }
+        const dataToUpdate = this.prepareUpdateData(classSessionUpdateDto, now);
 
         existingSession.update(dataToUpdate);
 
@@ -210,4 +166,84 @@ export class ClassSessionWriteService {
         await sessionWithPublisher.commitAndPublishToExternal();
         return session;
     }
+
+    private buildSessionCreateArgs(
+        ith: number,
+        classSessionDto: MultipleClassSessionsCreateDto,
+        startDatetime: Date,
+        endDatetime: Date
+    ): ClassSessionCreateArgs {
+        const titleSuffix = ith === 0 ? '' : ` ${ith}`;
+        return Builder<ClassSessionCreateArgs>()
+            .tutorId(classSessionDto.tutorId)
+            .classId(classSessionDto.classId)
+            .description(ith === 0 ? classSessionDto?.description : '')
+            .title(`${classSessionDto.title}${titleSuffix}`)
+            .createdAt(new Date())
+            .startDatetime(startDatetime)
+            .endDatetime(endDatetime)
+            .address(classSessionDto.address)
+            .wardId(classSessionDto.wardId)
+            .isOnline(classSessionDto.isOnline)
+            .build();
+    }
+
+    // Note that it's only date, not time
+    private setSessionDate(session: ClassSession | ClassSessionCreateArgs, date: Date) {
+        // Set startDatetime and endDatetime to date
+        const [y, m, d] = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDay()];
+
+        // Update startDatetime and endDatetime
+        [session.startDatetime, session.endDatetime].forEach(date => {
+            date.setUTCFullYear(y, m, d);
+        });
+    }
+
+    private async validateSessionUpdate(existingSession: ClassSession, classSessionUpdateDto: ClassSessionUpdateDto) {
+        const { startDatetime, endDatetime, address, wardId, isOnline, isCancelled } = classSessionUpdateDto;
+        const now = new Date();
+
+        const tempUpdatedSession = { ...existingSession };
+        Object.assign(tempUpdatedSession, classSessionUpdateDto);
+
+        if (startDatetime !== undefined || endDatetime !== undefined) {
+            // Verify if the updated timeslot long enough
+            isValidTimeSlotDuration(tempUpdatedSession.startDatetime, tempUpdatedSession.endDatetime);
+            const overlappedSession = await this.classSessionReadService.isSessionOverlap(
+                tempUpdatedSession.classId,
+                startDatetime,
+                endDatetime,
+            );
+            if (overlappedSession) {
+                throw new BadRequestException(`Updated session timeslot overlaps session ${overlappedSession.id}`);
+            }
+        }
+
+        // There is at least one change in address data set
+        if (address !== undefined || wardId !== undefined || isOnline !== undefined) {
+            if (!validateClassAndSessionAddress(tempUpdatedSession.isOnline, tempUpdatedSession.address, tempUpdatedSession.wardId)) {
+                throw new BadRequestException('Address & wardId is required for non-online class');
+            }
+        }
+
+        if (isCancelled !== undefined) {
+            if (isCancelled && tempUpdatedSession.endDatetime < now) {
+                throw new BadRequestException("Cannot cancel ended class session");
+            }
+        }
+    }
+
+    private prepareUpdateData(classSessionUpdateDto: ClassSessionUpdateDto, now: Date): ClassSessionUpdateArgs {
+        const { classSessionId, ...otherUpdateData } = classSessionUpdateDto;
+        const dataToUpdate: ClassSessionUpdateArgs = {
+            ...otherUpdateData,
+            updatedAt: now,
+        };
+    
+        if (dataToUpdate?.tutorFeedback) {
+            dataToUpdate.feedbackUpdatedAt = now;
+        }
+    
+        return dataToUpdate;
+    }    
 }

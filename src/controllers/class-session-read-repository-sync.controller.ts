@@ -42,6 +42,9 @@ export class ReadRepositorySync {
     const sessionToSave = this.readRepository.create({
       ...classSession,
       id: classSessionId,
+      class: {
+        classId: classSession.classId,
+      },
     });
     await this.readRepository.save(sessionToSave);
   }

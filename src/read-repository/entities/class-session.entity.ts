@@ -16,9 +16,6 @@ export class ClassSession {
   @ManyToOne(() => Class, cl => cl.sessions)
   class: Class;
 
-  // @Column()
-  // classId: string;
-
   @Column({ default: '' })
   description: string;
 

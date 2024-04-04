@@ -2,6 +2,7 @@ import { ClassTimeSlot, ClassTimeSlotDto } from 'src/dtos';
 import { convertTimestringToDate } from './convert-timestring-to-date.helper';
 import { weekdayToNumber } from './convert-weekday-to-number.helper';
 import { BadRequestException } from '@nestjs/common';
+import { setTimeToDate } from './set-time-to-date.helper';
 
 export function sanitizeTimeSlot(
   timeSlots: ClassTimeSlotDto[],
@@ -51,7 +52,7 @@ export function getNextTimeSlot(timeSlots: ClassTimeSlot[], currentDate: Date) {
   );
 }
 
-export function getNextSessionDate(
+function getNextSessionDate(
   currentDate: Date,
   nextTimeSlot: ClassTimeSlot,
 ) {
@@ -62,6 +63,18 @@ export function getNextSessionDate(
         7),
   );
   return nextSessionDate;
+}
+
+export function getNextSessionDateTime(
+  currentDate: Date,
+  timeSlots: ClassTimeSlot[],
+): [Date, Date] {
+  const nextTimeSlot = getNextTimeSlot(timeSlots, currentDate);
+  const nextSessionDate = getNextSessionDate(currentDate, nextTimeSlot);
+  const startDatetime = setTimeToDate(nextSessionDate, nextTimeSlot.startTime);
+  const endDatetime = setTimeToDate(nextSessionDate, nextTimeSlot.endTime);
+
+  return [startDatetime, endDatetime];
 }
 
 export function isValidTimeSlotDuration(startTime: Date, endTime: Date) {

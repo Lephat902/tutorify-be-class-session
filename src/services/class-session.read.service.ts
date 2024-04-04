@@ -116,7 +116,7 @@ export class ClassSessionReadService {
   ): Promise<ClassSession> {
     const overlappingSession = await this.readRepository
       .createQueryBuilder('session')
-      .where('session.classId = :classId', { classId })
+      .where('session.class.classId = :classId', { classId })
       .andWhere('session.startDatetime <= :endDatetime', { endDatetime })
       .andWhere('session.endDatetime >= :startDatetime', { startDatetime })
       .getOne();
