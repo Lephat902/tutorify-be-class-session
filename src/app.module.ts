@@ -3,14 +3,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Controllers } from './controllers';
 import { ReadRepository } from './read-repository';
-import { BroadcastModule, QueueNames } from '@tutorify/shared';
+import { BroadcastModule, FileProxy, QueueNames } from '@tutorify/shared';
 import { entities } from './read-repository/entities';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ClassSessionEventDispatcher } from './class-session.event-dispatcher';
 import { EventNestMongoDbModule } from '@event-nest/mongodb';
 import { ClassSessionReadService, ClassSessionWriteService } from './services';
 import { MutexService } from './mutexes';
-import { Proxies } from './proxies';
 
 @Module({
   imports: [
@@ -60,7 +59,7 @@ import { Proxies } from './proxies';
     ReadRepository,
     ClassSessionEventDispatcher,
     MutexService,
-    ...Proxies,
+    FileProxy,
   ],
   controllers: Controllers,
 })

@@ -35,17 +35,11 @@ FROM development AS build
 # Set NODE_ENV environment variable
 ENV NODE_ENV production
 
-# Switch to shared dir
-WORKDIR /usr/src/shared
-
-# Copy temp 'shared' dir
-COPY --chown=node:node ./shared .
-
-# Install packages of shared dir for 'npm run build' below to succeed, those packages will not be included in built image
-RUN npm ci --only=production
-
 # Switch to app dir
 WORKDIR /usr/src/app
+
+# Copy temp 'shared' dir
+COPY --chown=node:node ./shared /usr/src/shared
 
 # Run the build command which creates the production bundle
 RUN npm run build

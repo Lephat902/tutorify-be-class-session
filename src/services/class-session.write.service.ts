@@ -1,6 +1,6 @@
 import { EVENT_STORE, EventStore, StoredEvent } from "@event-nest/core";
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { cleanAggregateObject, validateClassAndSessionAddress } from "@tutorify/shared";
+import { cleanAggregateObject, validateClassAndSessionAddress, FileProxy } from "@tutorify/shared";
 import { getNextSessionDateTime, getNextday, isValidTimeSlotDuration, sanitizeTimeSlot } from "../helpers";
 import { MultipleClassSessionsCreateDto } from "../dtos";
 import { Builder } from "builder-pattern";
@@ -9,7 +9,6 @@ import { ClassSessionUpdateDto } from "../dtos/class-session-update.dto";
 import { ClassSessionReadService } from "./class-session.read.service";
 import { CLASS_SESSION_UPDATED_EVENT } from "src/events";
 import { ClassSessionCreateStatus, ClassSessionUpdateStatus } from "src/aggregates/enums";
-import { FileProxy } from "src/proxies";
 import { ClassSessionEventDispatcher } from "src/class-session.event-dispatcher";
 
 @Injectable()
