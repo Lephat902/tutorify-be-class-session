@@ -3,6 +3,7 @@ import { ClassQueryDto, ClassSessionQueryDto, ClassSessionResponse } from '../dt
 import { Class, ClassSession } from '../read-repository/entities';
 import { ReadRepository } from '../read-repository/read.repository';
 import { ClassSessionStatus, UserMakeRequest, UserRole } from '@tutorify/shared';
+import { SessionStatsPerClass } from 'src/dtos/class-session-stat.dto';
 
 @Injectable()
 export class ClassSessionReadService {
@@ -89,6 +90,31 @@ export class ClassSessionReadService {
     }
 
     return classSessionQuery.getCount();
+  }
+
+  async getSessionsStatsPerClass(
+    classId: string,
+    userMakeRequest: UserMakeRequest,
+  ): Promise<SessionStatsPerClass> {
+    const getAllClassSessionsQuery = this.readRepository.getAllClassSessionsQuery({
+      classId,
+      userMakeRequest,
+    });
+    const [
+      nonCancelledClassSessionsCount,
+      scheduledClassSessionsCount,
+      totalCount,
+    ] = await Promise.all([
+      this.getNonCancelledClassSessionsCount(classId, userMakeRequest),
+      this.getScheduledClassSessionsCount(classId, userMakeRequest),
+      getAllClassSessionsQuery.getCount(),
+    ]);
+
+    return {
+      nonCancelledClassSessionsCount,
+      scheduledClassSessionsCount,
+      totalCount,
+    }
   }
 
   transformToClassSessionResponse(classSession: ClassSession): ClassSessionResponse {

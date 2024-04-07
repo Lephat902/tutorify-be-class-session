@@ -5,6 +5,7 @@ import { MessagePattern } from '@nestjs/microservices';
 import { ClassSessionUpdateDto } from 'src/dtos/class-session-update.dto';
 import { MutexService } from 'src/mutexes';
 import { UserMakeRequest } from '@tutorify/shared';
+import { SessionStatsPerClass } from 'src/dtos/class-session-stat.dto';
 
 @Controller()
 export class ClassSessionController {
@@ -50,6 +51,14 @@ export class ClassSessionController {
     userMakeRequest: UserMakeRequest
   }): Promise<number> {
     return this.classSessionReadService.getScheduledClassSessionsCount(data.classId, data.userMakeRequest);
+  }
+
+  @MessagePattern({ cmd: 'getSessionsStatsPerClass' })
+  async getSessionsStatsPerClass(data: {
+    classId: string,
+    userMakeRequest: UserMakeRequest
+  }): Promise<SessionStatsPerClass> {
+    return this.classSessionReadService.getSessionsStatsPerClass(data.classId, data.userMakeRequest);
   }
 
   @MessagePattern({ cmd: 'createClassSessions' })

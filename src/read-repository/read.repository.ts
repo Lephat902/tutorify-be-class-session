@@ -13,12 +13,9 @@ export class ReadRepository extends Repository<ClassSession> {
     super(ClassSession, dataSource.createEntityManager());
   }
 
-  async getAllClassSessions(
+  getAllClassSessionsQuery(
     filters: ClassSessionQueryDto,
-  ): Promise<{
-    totalCount: number,
-    results: ClassSession[],
-  }> {
+  ): SelectQueryBuilder<ClassSession> {
     const { userMakeRequest } = filters;
     const { userRole, userId } = userMakeRequest;
     const now = new Date();
@@ -34,6 +31,16 @@ export class ReadRepository extends Repository<ClassSession> {
     this.orderByField(queryBuilder, filters.order, filters.dir);
     this.paginateResults(queryBuilder, filters.page, filters.limit);
 
+    return queryBuilder;
+  }
+
+  async getAllClassSessions(
+    filters: ClassSessionQueryDto,
+  ): Promise<{
+    totalCount: number,
+    results: ClassSession[],
+  }> {
+    const queryBuilder = this.getAllClassSessionsQuery(filters);
     const [results, totalCount] = await queryBuilder.getManyAndCount();
     return { results, totalCount };
   }
