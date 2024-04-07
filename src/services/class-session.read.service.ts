@@ -81,7 +81,7 @@ export class ClassSessionReadService {
       .innerJoin('classSession.class', 'class')
       .andWhere('class.classId = :classId', { classId })
       .andWhere('classSession.isCancelled = :isCancelled', { isCancelled: false })
-      .andWhere('classSession.endDatetime < :now', { now });
+      .andWhere('classSession.endDatetime > :now', { now });
 
     if (userRole === UserRole.STUDENT) {
       classSessionQuery.andWhere('class.studentId = :userId', { userId });
