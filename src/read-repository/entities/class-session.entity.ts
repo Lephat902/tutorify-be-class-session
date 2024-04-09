@@ -7,6 +7,8 @@ import {
 import { Geometry } from 'geojson';
 import { ClassSessionMaterial } from './class-session-material.entity';
 import { Class } from './class.entity';
+import { ClassSessionStatus } from '@tutorify/shared';
+import { Expose } from 'class-transformer';
 
 @Entity()
 export class ClassSession {
@@ -57,4 +59,16 @@ export class ClassSession {
 
   @Column({ nullable: true })  
   feedbackUpdatedAt: Date;
+
+  @Expose()
+  get status(): ClassSessionStatus {
+    const now = new Date();
+    if (this.isCancelled) {
+      return ClassSessionStatus.CANCELLED;
+    } else if (this.endDatetime < now) {
+      return ClassSessionStatus.CONCLUDED;
+    } else {
+      return ClassSessionStatus.SCHEDULED;
+    }
+  }
 }

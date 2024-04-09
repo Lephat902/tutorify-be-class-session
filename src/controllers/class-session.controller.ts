@@ -1,11 +1,12 @@
 import { Controller } from '@nestjs/common';
 import { ClassSessionWriteService, ClassSessionReadService } from 'src/services';
-import { MultipleClassSessionsCreateDto, ClassSessionQueryDto, ClassSessionResponse, ClassQueryDto } from '../dtos';
+import { MultipleClassSessionsCreateDto, ClassSessionQueryDto, ClassQueryDto } from '../dtos';
 import { MessagePattern } from '@nestjs/microservices';
 import { ClassSessionUpdateDto } from 'src/dtos/class-session-update.dto';
 import { MutexService } from 'src/mutexes';
 import { UserMakeRequest } from '@tutorify/shared';
 import { SessionStatsPerClass } from 'src/dtos/class-session-stat.dto';
+import { ClassSession } from 'src/read-repository';
 
 @Controller()
 export class ClassSessionController {
@@ -33,7 +34,7 @@ export class ClassSessionController {
   async getClassSessionById(data: {
     classSessionId: string,
     userMakeRequest: UserMakeRequest
-  }): Promise<ClassSessionResponse> {
+  }): Promise<ClassSession> {
     return this.classSessionReadService.getClassSessionById(data.classSessionId, data.userMakeRequest);
   }
 

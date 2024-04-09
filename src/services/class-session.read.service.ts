@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { ClassQueryDto, ClassSessionQueryDto, ClassSessionResponse } from '../dtos';
+import { ClassQueryDto, ClassSessionQueryDto } from '../dtos';
 import { Class, ClassSession } from '../read-repository/entities';
 import { ReadRepository } from '../read-repository/read.repository';
-import { ClassSessionStatus, UserMakeRequest, UserRole } from '@tutorify/shared';
+import { UserMakeRequest, UserRole } from '@tutorify/shared';
 import { SessionStatsPerClass } from 'src/dtos/class-session-stat.dto';
 
 @Injectable()
@@ -15,11 +15,11 @@ export class ClassSessionReadService {
     filters: ClassSessionQueryDto,
   ): Promise<{
     totalCount: number,
-    results: ClassSessionResponse[],
+    results: ClassSession[],
   }> {
     const { results, totalCount } = await this.readRepository.getAllClassSessions(filters);
     return {
-      results: results.map(classSession => this.transformToClassSessionResponse(classSession)),
+      results,
       totalCount
     }
   }
@@ -36,7 +36,7 @@ export class ClassSessionReadService {
   async getClassSessionById(
     id: string,
     userMakeRequest: UserMakeRequest,
-  ): Promise<ClassSessionResponse> {
+  ): Promise<ClassSession> {
     const { userRole, userId } = userMakeRequest;
     const classSessionQuery = this.readRepository.createQueryBuilder('classSession')
       .innerJoinAndSelect('classSession.class', 'class')
@@ -49,7 +49,7 @@ export class ClassSessionReadService {
 
     const classSession = await classSessionQuery.getOne();
 
-    return this.transformToClassSessionResponse(classSession);
+    return classSession;
   }
 
   async getNonCancelledClassSessionsCount(
@@ -114,24 +114,6 @@ export class ClassSessionReadService {
       nonCancelledClassSessionsCount,
       scheduledClassSessionsCount,
       totalCount,
-    }
-  }
-
-  transformToClassSessionResponse(classSession: ClassSession): ClassSessionResponse {
-    if (!classSession)
-      return null;
-    const now = new Date();
-    let status: ClassSessionStatus;
-    if (classSession.isCancelled) {
-      status = ClassSessionStatus.CANCELLED;
-    } else if (classSession.endDatetime < now) {
-      status = ClassSessionStatus.CONCLUDED;
-    } else {
-      status = ClassSessionStatus.SCHEDULED;
-    }
-    return {
-      ...classSession,
-      status
     }
   }
 
