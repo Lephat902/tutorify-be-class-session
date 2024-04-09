@@ -23,11 +23,11 @@ export class ClassSessionController {
     return this.classSessionReadService.getClassSessionsAndTotalCount(filters);
   }
 
-  @MessagePattern({ cmd: 'getUpcomingClasses' })
-  async getUpcomingClasses(
+  @MessagePattern({ cmd: 'getClasses' })
+  async getClasses(
     filters: ClassQueryDto,
   ) {
-    return this.classSessionReadService.getUpcomingClasses(filters);
+    return this.classSessionReadService.getClasses(filters);
   }
 
   @MessagePattern({ cmd: 'getClassSessionById' })

@@ -23,7 +23,7 @@ export class ReadRepository extends Repository<ClassSession> {
       .innerJoinAndSelect('classSession.class', 'class');
 
     this.filterByClassId(queryBuilder, filters.classId, userRole, userId);
-    this.filterByUserRole(queryBuilder, userRole, userId);
+    this.filterByUser(queryBuilder, userRole, userId);
     this.filterByQuery(queryBuilder, filters.q);
     this.filterByStartTime(queryBuilder, filters.startTime);
     this.filterByEndTime(queryBuilder, filters.endTime);
@@ -58,7 +58,7 @@ export class ReadRepository extends Repository<ClassSession> {
       .getOne();
   }
 
-  async getUpcomingClasses(
+  async getClasses(
     filters: ClassQueryDto,
   ): Promise<{
     totalCount: number,
@@ -70,13 +70,13 @@ export class ReadRepository extends Repository<ClassSession> {
     const queryBuilder = this.dataSource.createQueryBuilder(Class, 'class')
       .innerJoinAndSelect('class.sessions', 'classSession');
 
-    this.filterByUserRole(queryBuilder, userRole, userId);
-    this.filterByStartTime(queryBuilder, filters.startTime);
-    this.filterByEndTime(queryBuilder, filters.endTime);
-    this.filterByStatus(queryBuilder, [ClassSessionStatus.SCHEDULED], now);
-    this.orderByField(queryBuilder, filters.order, filters.dir);
-    this.paginateResults(queryBuilder, filters.page, filters.limit);
-
+      this.filterByUser(queryBuilder, userRole, userId);
+      this.filterByStartTime(queryBuilder, filters.startTime);
+      this.filterByEndTime(queryBuilder, filters.endTime);
+      this.filterByStatus(queryBuilder, filters.statuses, now);
+      this.orderByField(queryBuilder, filters.order, filters.dir);
+      this.paginateResults(queryBuilder, filters.page, filters.limit);
+  
     const [results, totalCount] = await queryBuilder.getManyAndCount();
     return { results, totalCount };
   }
@@ -99,7 +99,7 @@ export class ReadRepository extends Repository<ClassSession> {
     }
   }
 
-  private filterByUserRole(query: QueryType, userRole: UserRole, userId: string | undefined) {
+  private filterByUser(query: QueryType, userRole: UserRole, userId: string | undefined) {
     if (userRole !== UserRole.ADMIN && userRole !== UserRole.MANAGER) {
       this.filterByUserId(query, userId);
     }
