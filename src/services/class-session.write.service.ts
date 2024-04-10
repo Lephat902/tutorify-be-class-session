@@ -30,6 +30,8 @@ export class ClassSessionWriteService {
         const timeSlots = sanitizeTimeSlot(classSessionDto.timeSlots);
         let currentDate = classSessionDto.startDate ?? new Date();
 
+        const noLoop = (!endDateForRecurringSessions) && (numberOfSessionsToCreate <= 1);
+
         const validatedSessionsData: ClassSessionCreateArgs[] = [];
         for (
             let i = 0;
@@ -40,8 +42,12 @@ export class ClassSessionWriteService {
 
             if (endDatetime.getDate() > endDateForRecurringSessions?.getDate())
                 break;
-
-            if (!(await this.classSessionReadService.isSessionOverlap(classId, startDatetime, endDatetime))) {
+            // Push new session, when:
+            // 1. Loop && session not overlapped, or
+            // 2. No loop
+            if (noLoop
+                || !(await this.classSessionReadService.isSessionOverlap(classId, startDatetime, endDatetime))
+            ) {
                 const newSession = this.buildSessionCreateArgs(i, classSessionDto, startDatetime, endDatetime, useDefaultAddress);
                 validatedSessionsData.push(newSession);
             }
