@@ -244,7 +244,7 @@ export class ClassSessionWriteService {
     // Note that it's only date, not time
     private setSessionDate(session: ClassSession | ClassSessionCreateArgs, date: Date) {
         // Set startDatetime and endDatetime to date
-        const [y, m, d] = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDay()];
+        const [y, m, d] = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()];
 
         // Update startDatetime and endDatetime
         [session.startDatetime, session.endDatetime].forEach(date => {
