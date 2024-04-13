@@ -1,6 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { ClassSessionWriteService, ClassSessionReadService } from 'src/services';
-import { MultipleClassSessionsCreateDto, ClassSessionQueryDto, ClassQueryDto } from '../dtos';
+import { MultipleClassSessionsCreateDto, ClassSessionQueryDto, ClassQueryDto, ClassSessionDeleteDto } from '../dtos';
 import { MessagePattern } from '@nestjs/microservices';
 import { ClassSessionUpdateDto } from 'src/dtos/class-session-update.dto';
 import { MutexService } from 'src/mutexes';
@@ -79,6 +79,22 @@ export class ClassSessionController {
     const release = await this.mutexService.acquireLockForClassSession(classSessionId);
     try {
       return this.classSessionWriteService.updateClassSession(classSessionId, classSessionUpdateDto);
+    } finally {
+      // Release the mutex
+      release();
+    }
+  }
+
+  @MessagePattern({ cmd: 'deleteClassSession' })
+  async deleteClassSession(
+    classSessionDeleteDto: ClassSessionDeleteDto,
+  ) {
+    const { classSessionId } = classSessionDeleteDto;
+
+    // Lock the mutex
+    const release = await this.mutexService.acquireLockForClassSession(classSessionId);
+    try {
+      return this.classSessionWriteService.deleteClassSession(classSessionDeleteDto);
     } finally {
       // Release the mutex
       release();

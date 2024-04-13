@@ -8,6 +8,8 @@ import {
   ClassSessionVerificationUpdatedEvent,
   ClassSessionDefaultAddressQueryEventPayload,
   ClassSessionDefaultAddressQueryEvent,
+  ClassSessionDeletedEventPayload,
+  ClassSessionDeletedEvent,
 } from '@tutorify/shared';
 import { Builder } from 'builder-pattern';
 import { Injectable } from '@nestjs/common';
@@ -61,6 +63,21 @@ export class ClassSessionEventDispatcher {
       .classSessionId(classSessionId)
       .build();
     const event = new ClassSessionVerificationUpdatedEvent(eventPayload);
+    this.broadcastService.broadcastEventToAllMicroservices(
+      event.pattern,
+      event.payload,
+    );
+  }
+
+  dispatchClassSessionDeletedEvent(
+    deleteSessionTutorId: string,
+    classSessionId: string,
+  ) {
+    const eventPayload = Builder<ClassSessionDeletedEventPayload>()
+      .deleteSessionTutorId(deleteSessionTutorId)
+      .classSessionId(classSessionId)
+      .build();
+    const event = new ClassSessionDeletedEvent(eventPayload);
     this.broadcastService.broadcastEventToAllMicroservices(
       event.pattern,
       event.payload,

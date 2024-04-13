@@ -5,7 +5,7 @@ import { ClassSessionCreatedEvent, ClassSessionUpdatedEvent } from "src/events";
 import { Geometry } from 'geojson';
 import { ClassSessionEventDispatcher } from "src/class-session.event-dispatcher";
 import { ClassSessionVerificationUpdatedEvent } from "src/events/class-session-verification-updated.event";
-import { ClassSessionCreateArgs, ClassSessionAddressUpdateArgs, ClassSessionUpdateArgs, ClassSessionVerificationUpdateArgs } from "./args";
+import { ClassSessionCreateArgs, ClassSessionAddressUpdateArgs, ClassSessionUpdateArgs, ClassSessionVerificationUpdateArgs, ClassSessionDeleteArgs } from "./args";
 import { ClassSessionCreateStatus, ClassSessionUpdateStatus } from "./enums";
 
 @AggregateRootName("ClassSession")
@@ -26,6 +26,8 @@ export class ClassSession extends AggregateRoot {
   public materials: ClassSessionMaterial[] = [];
   public tutorFeedback: string = '';
   public feedbackUpdatedAt: Date = null;
+  public isDeleted: boolean = false;
+
   public createStatus: ClassSessionCreateStatus = ClassSessionCreateStatus.CREATE_PENDING;
   public updateStatus: ClassSessionUpdateStatus = ClassSessionUpdateStatus.UPDATED;
   public classVerified: boolean = false;
@@ -62,7 +64,8 @@ export class ClassSession extends AggregateRoot {
   update(
     data:
       ClassSessionUpdateArgs |
-      ClassSessionAddressUpdateArgs,
+      ClassSessionAddressUpdateArgs |
+      ClassSessionDeleteArgs
   ) {
     const event = new ClassSessionUpdatedEvent(data);
     this.processClassSessionUpdatedEvent(event);

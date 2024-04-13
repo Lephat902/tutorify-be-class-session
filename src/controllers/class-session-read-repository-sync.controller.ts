@@ -38,6 +38,10 @@ export class ReadRepositorySync {
       console.log("Not allow unstable class session to enter read-database");
       return;
     }
+    if (classSession.isDeleted) {
+      console.log(`Start deleting class session ${classSessionId} from read-database`);
+      return this.readRepository.delete(classSessionId);
+    }
     console.log(`Start inserting/updating class session ${classSessionId} to read-database`);
     const sessionToSave = this.readRepository.create({
       ...classSession,

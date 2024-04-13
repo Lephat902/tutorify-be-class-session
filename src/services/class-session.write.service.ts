@@ -1,8 +1,8 @@
 import { EVENT_STORE, EventStore, StoredEvent } from "@event-nest/core";
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { cleanAggregateObject, validateClassAndSessionAddress, FileProxy } from "@tutorify/shared";
+import { cleanAggregateObject, validateClassAndSessionAddress, FileProxy, haveManagerPermission } from "@tutorify/shared";
 import { getNextSessionDateTime, getNextday, isValidTimeSlotDuration, sanitizeTimeSlot } from "../helpers";
-import { MultipleClassSessionsCreateDto } from "../dtos";
+import { ClassSessionDeleteDto, MultipleClassSessionsCreateDto } from "../dtos";
 import { Builder } from "builder-pattern";
 import { ClassSession, ClassSessionCreateArgs, ClassSessionUpdateArgs, ClassSessionVerificationUpdateArgs } from "../aggregates";
 import { ClassSessionUpdateDto } from "../dtos/class-session-update.dto";
@@ -95,6 +95,33 @@ export class ClassSessionWriteService {
             updateStatus: ClassSessionUpdateStatus.UPDATE_PENDING,
             tutorVerified: false,
         });
+
+        const sessionWithPublisher = this.eventStore.addPublisher(existingSession);
+        await sessionWithPublisher.commitAndPublishToExternal();
+
+        return cleanAggregateObject(existingSession);
+    }
+
+    async deleteClassSession(
+        classSessionDeleteDto: ClassSessionDeleteDto,
+    ): Promise<ClassSession> {
+        const { classSessionId, userMakeRequest } = classSessionDeleteDto;
+        const { userId, userRole } = userMakeRequest;
+        const existingSession = await this.getSessionById(classSessionId);
+        this.checkModificationValidity(existingSession);
+
+        existingSession.update({
+            tutorId: userId,
+            isDeleted: true
+        });
+
+        if (haveManagerPermission(userRole)) {
+            // Set status to UPDATE_PENDING AFTER (just a convention) calling deleting
+            existingSession.updateVerification({
+                updateStatus: ClassSessionUpdateStatus.UPDATE_PENDING,
+                tutorVerified: false,
+            });
+        }
 
         const sessionWithPublisher = this.eventStore.addPublisher(existingSession);
         await sessionWithPublisher.commitAndPublishToExternal();

@@ -44,3 +44,6 @@ export class ClassSessionVerificationUpdateArgs extends PartialType(PickType(Cla
 export class ClassSessionAddressUpdateArgs extends PickType(ClassSession,
   ['isOnline', 'address', 'wardId'] as const
 ) { }
+export class ClassSessionDeleteArgs extends PickType(ClassSession,
+  ['tutorId', 'isDeleted'] as const
+) { }
