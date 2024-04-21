@@ -1,7 +1,7 @@
 import { EVENT_STORE, EventStore, StoredEvent } from "@event-nest/core";
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { cleanAggregateObject, validateClassAndSessionAddress, FileProxy, haveManagerPermission } from "@tutorify/shared";
-import { getNextSessionDateTime, getNextday, isValidTimeSlotDuration, sanitizeTimeSlot } from "../helpers";
+import { getNextSessionDateTime, getNextday, isEndTimeInThePast, isValidTimeSlotDuration, sanitizeTimeSlot } from "../helpers";
 import { ClassSessionDeleteDto, MultipleClassSessionsCreateDto } from "../dtos";
 import { Builder } from "builder-pattern";
 import { ClassSession, ClassSessionCreateArgs, ClassSessionUpdateArgs, ClassSessionVerificationUpdateArgs } from "../aggregates";
@@ -33,11 +33,9 @@ export class ClassSessionWriteService {
         const noLoop = (!endDateForRecurringSessions) && (numberOfSessionsToCreate <= 1);
 
         const validatedSessionsData: ClassSessionCreateArgs[] = [];
-        for (
-            let i = 0;
-            this.shouldContinueCreatingSessions(i, numberOfSessionsToCreate, currentDate, endDateForRecurringSessions);
-            ++i
-        ) {
+        let sessionsCreatedCount = 0;
+
+        while (this.shouldContinueCreatingSessions(sessionsCreatedCount, numberOfSessionsToCreate, currentDate, endDateForRecurringSessions)) {
             const [startDatetime, endDatetime] = getNextSessionDateTime(currentDate, timeSlots);
 
             if (endDatetime.getDate() > endDateForRecurringSessions?.getDate())
@@ -48,8 +46,9 @@ export class ClassSessionWriteService {
             if (noLoop
                 || !(await this.classSessionReadService.isSessionOverlap(classId, startDatetime, endDatetime))
             ) {
-                const newSession = this.buildSessionCreateArgs(i, classSessionDto, startDatetime, endDatetime, useDefaultAddress);
+                const newSession = this.buildSessionCreateArgs(sessionsCreatedCount, classSessionDto, startDatetime, endDatetime, useDefaultAddress);
                 validatedSessionsData.push(newSession);
+                ++sessionsCreatedCount;
             }
             currentDate = getNextday(startDatetime);
         }
@@ -257,6 +256,9 @@ export class ClassSessionWriteService {
         if (validatedSessionsData.length === 1) {
             const onlySession = validatedSessionsData[0];
             this.setSessionDate(onlySession, classSessionDto.startDate ?? new Date());
+            if (isEndTimeInThePast(onlySession.endDatetime)) {
+                throw new BadRequestException("Endtime cannot be in the past");
+            }
             const overlappedSession = await this.classSessionReadService.isSessionOverlap(
                 classSessionDto.classId,
                 onlySession.startDatetime,
