@@ -217,6 +217,8 @@ export class ClassSessionWriteService {
             throw new BadRequestException(`You cannot modify a ${classSession.createStatus.toLowerCase()} class session`);
         if (classSession.updateStatus !== ClassSessionUpdateStatus.UPDATED)
             throw new BadRequestException(`You cannot modify a ${classSession.updateStatus.toLowerCase()} class session`);
+        if (classSession.isDeleted)
+            throw new NotFoundException(`Class session ${classSession.id} not found`);
     }
 
     private async createNew(data: ClassSessionCreateArgs): Promise<ClassSession> {
