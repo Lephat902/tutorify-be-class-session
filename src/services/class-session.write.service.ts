@@ -38,7 +38,7 @@ export class ClassSessionWriteService {
         while (this.shouldContinueCreatingSessions(sessionsCreatedCount, numberOfSessionsToCreate, currentDate, endDateForRecurringSessions)) {
             const [startDatetime, endDatetime] = getNextSessionDateTime(currentDate, timeSlots);
 
-            if (endDatetime.getDate() > endDateForRecurringSessions?.getDate())
+            if (endDatetime.toISOString().split('T')[0] > endDateForRecurringSessions?.toISOString().split('T')[0])
                 break;
             // Push new session, when:
             // 1. Loop && session not overlapped, or
@@ -251,7 +251,7 @@ export class ClassSessionWriteService {
     }
 
     private shouldContinueCreatingSessions(i: number, numberOfSessionsToCreate: number, currentDate: Date, endDateForRecurringSessions: Date) {
-        return i < numberOfSessionsToCreate || currentDate.getDate() <= endDateForRecurringSessions?.getDate();
+        return i < numberOfSessionsToCreate || currentDate.toISOString().split('T')[0] <= endDateForRecurringSessions?.toISOString().split('T')[0];
     }
 
     private async handleSingleSessionCase(validatedSessionsData: ClassSessionCreateArgs[], classSessionDto: MultipleClassSessionsCreateDto) {

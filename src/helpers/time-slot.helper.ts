@@ -62,14 +62,9 @@ function getNextSessionDateTimeOnCurrentDate(
 ): [Date, Date] {
   const nextSessionDate = new Date(currentDate);
   const daysToNextSession = (7 + weekdayToNumber(nextTimeSlot.weekday) - nextSessionDate.getDay()) % 7;
-  nextSessionDate.setDate(nextSessionDate.getDate() + daysToNextSession);
+  nextSessionDate.setUTCDate(nextSessionDate.getUTCDate() + daysToNextSession);
   const startDatetime = setTimeToDate(nextSessionDate, nextTimeSlot.startTime);
   const endDatetime = setTimeToDate(nextSessionDate, nextTimeSlot.endTime);
-
-  if (isEndTimeInThePast(endDatetime)) {
-    startDatetime.setDate(startDatetime.getDate() + 7);
-    endDatetime.setDate(endDatetime.getDate() + 7);
-  }
 
   return [startDatetime, endDatetime];
 }
@@ -79,7 +74,17 @@ export function getNextSessionDateTime(
   timeSlots: ClassTimeSlot[],
 ): [Date, Date] {
   const nextTimeSlot = getNextTimeSlot(timeSlots, currentDate);
-  return getNextSessionDateTimeOnCurrentDate(currentDate, nextTimeSlot);
+
+  const [startDatetime, endDatetime] = getNextSessionDateTimeOnCurrentDate(currentDate, nextTimeSlot);
+  if (isEndTimeInThePast(endDatetime)) {
+    // Move date to next timeslot
+    const dateAfterCurrentDate = new Date(currentDate);
+    dateAfterCurrentDate.setUTCDate(dateAfterCurrentDate.getUTCDate() + 1);
+    const nextTimeSlot = getNextTimeSlot(timeSlots, dateAfterCurrentDate);
+    return getNextSessionDateTimeOnCurrentDate(dateAfterCurrentDate, nextTimeSlot);
+  }
+
+  return [startDatetime, endDatetime];
 }
 
 export function isValidTimeSlotDuration(startTime: Date, endTime: Date) {
