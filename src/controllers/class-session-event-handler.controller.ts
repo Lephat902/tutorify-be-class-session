@@ -1,12 +1,12 @@
 import { Controller } from '@nestjs/common';
 import { EventPattern } from '@nestjs/microservices';
 import {
-  ClassSessionClassVerifiedEventPattern,
-  ClassSessionClassVerifiedEventPayload,
+  ClassSessionClassVerifiedResponseEventPattern,
+  ClassSessionClassVerifiedResponseEventPayload,
   ClassSessionDefaultAddressReturnedEventPattern,
   ClassSessionDefaultAddressReturnedEventPayload,
-  ClassSessionTutorVerifiedEventPattern,
-  ClassSessionTutorVerifiedEventPayload,
+  ClassSessionTutorVerifiedResponseEventPattern,
+  ClassSessionTutorVerifiedResponseEventPayload,
   ClassSessionVerificationUpdatedEventPattern,
   ClassSessionVerificationUpdatedEventPayload,
 } from '@tutorify/shared';
@@ -27,9 +27,9 @@ export class ClassSessionExternalEventHandler {
     private readonly mutexService: MutexService,
   ) { }
 
-  @EventPattern(new ClassSessionTutorVerifiedEventPattern())
+  @EventPattern(new ClassSessionTutorVerifiedResponseEventPattern())
   async handleClassSessionTutorVerified(
-    payload: ClassSessionTutorVerifiedEventPayload,
+    payload: ClassSessionTutorVerifiedResponseEventPayload,
   ) {
     const { classSessionId, isValidTutor } = payload;
     console.log(`Starting updating tutor verification status for class session ${classSessionId}`);
@@ -40,9 +40,9 @@ export class ClassSessionExternalEventHandler {
     );
   }
 
-  @EventPattern(new ClassSessionClassVerifiedEventPattern())
+  @EventPattern(new ClassSessionClassVerifiedResponseEventPattern())
   async handleClassSessionClassVerified(
-    payload: ClassSessionClassVerifiedEventPayload,
+    payload: ClassSessionClassVerifiedResponseEventPayload,
   ) {
     const { classSessionId, isValidClass } = payload;
     console.log(`Starting updating class verification status for class session ${classSessionId}`);

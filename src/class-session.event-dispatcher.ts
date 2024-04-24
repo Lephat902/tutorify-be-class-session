@@ -1,9 +1,9 @@
 import {
   BroadcastService,
-  ClassSessionCreatedEvent,
-  ClassSessionCreatedEventPayload,
-  ClassSessionUpdatedEvent,
-  ClassSessionUpdatedEventPayload,
+  ClassSessionPendingCreatedEvent,
+  ClassSessionPendingCreatedEventPayload,
+  ClassSessionPendingUpdatedEvent,
+  ClassSessionPendingUpdatedEventPayload,
   ClassSessionVerificationUpdatedEventPayload,
   ClassSessionVerificationUpdatedEvent,
   ClassSessionDefaultAddressQueryEventPayload,
@@ -19,37 +19,37 @@ import { ClassSession } from './aggregates';
 export class ClassSessionEventDispatcher {
   constructor(private readonly broadcastService: BroadcastService) { }
 
-  dispatchClassSessionCreatedEvent(
+  dispatchClassSessionPendingCreatedEvent(
     createSessionTutorId: string,
     newClassSession: ClassSession,
   ) {
     const { id, classId, title, createdAt } = newClassSession;
-    const eventPayload = Builder<ClassSessionCreatedEventPayload>()
+    const eventPayload = Builder<ClassSessionPendingCreatedEventPayload>()
       .classSessionId(id)
       .classId(classId)
       .title(title)
       .createdAt(createdAt)
       .createSessionTutorId(createSessionTutorId)
       .build();
-    const event = new ClassSessionCreatedEvent(eventPayload);
+    const event = new ClassSessionPendingCreatedEvent(eventPayload);
     this.broadcastService.broadcastEventToAllMicroservices(
       event.pattern,
       event.payload,
     );
   }
 
-  dispatchClassSessionUpdatedEvent(
+  dispatchClassSessionPendingUpdatedEvent(
     updateSessionTutorId: string,
     updatedClassSession: ClassSession,
   ) {
     const { id, updatedAt, classId } = updatedClassSession;
-    const eventPayload = Builder<ClassSessionUpdatedEventPayload>()
+    const eventPayload = Builder<ClassSessionPendingUpdatedEventPayload>()
       .updateSessionTutorId(updateSessionTutorId)
       .classId(classId)
       .classSessionId(id)
       .updatedAt(updatedAt)
       .build();
-    const event = new ClassSessionUpdatedEvent(eventPayload);
+    const event = new ClassSessionPendingUpdatedEvent(eventPayload);
     this.broadcastService.broadcastEventToAllMicroservices(
       event.pattern,
       event.payload,
