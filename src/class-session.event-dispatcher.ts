@@ -1,11 +1,9 @@
 import {
   BroadcastService,
-  ClassSessionPendingCreatedEvent,
-  ClassSessionPendingCreatedEventPayload,
-  ClassSessionPendingUpdatedEvent,
-  ClassSessionPendingUpdatedEventPayload,
-  ClassSessionVerificationUpdatedEventPayload,
-  ClassSessionVerificationUpdatedEvent,
+  ClassSessionCreatedEvent,
+  ClassSessionCreatedEventPayload,
+  ClassSessionUpdatedEvent,
+  ClassSessionUpdatedEventPayload,
   ClassSessionDefaultAddressQueryEventPayload,
   ClassSessionDefaultAddressQueryEvent,
   ClassSessionDeletedEventPayload,
@@ -19,50 +17,37 @@ import { ClassSession } from './aggregates';
 export class ClassSessionEventDispatcher {
   constructor(private readonly broadcastService: BroadcastService) { }
 
-  dispatchClassSessionPendingCreatedEvent(
-    createSessionTutorId: string,
+  dispatchClassSessionCreatedEvent(
     newClassSession: ClassSession,
   ) {
-    const { id, classId, title, createdAt } = newClassSession;
-    const eventPayload = Builder<ClassSessionPendingCreatedEventPayload>()
+    const { id, createdAt, title, startDatetime, endDatetime } = newClassSession;
+    const eventPayload = Builder<ClassSessionCreatedEventPayload>()
       .classSessionId(id)
-      .classId(classId)
       .title(title)
+      .startDatetime(startDatetime)
+      .endDatetime(endDatetime)
       .createdAt(createdAt)
-      .createSessionTutorId(createSessionTutorId)
       .build();
-    const event = new ClassSessionPendingCreatedEvent(eventPayload);
+    const event = new ClassSessionCreatedEvent(eventPayload);
     this.broadcastService.broadcastEventToAllMicroservices(
       event.pattern,
       event.payload,
     );
   }
 
-  dispatchClassSessionPendingUpdatedEvent(
-    updateSessionTutorId: string,
+  dispatchClassSessionUpdatedEvent(
     updatedClassSession: ClassSession,
   ) {
-    const { id, updatedAt, classId } = updatedClassSession;
-    const eventPayload = Builder<ClassSessionPendingUpdatedEventPayload>()
-      .updateSessionTutorId(updateSessionTutorId)
-      .classId(classId)
+    const { id, updatedAt, title, startDatetime, endDatetime, isCancelled } = updatedClassSession;
+    const eventPayload = Builder<ClassSessionUpdatedEventPayload>()
       .classSessionId(id)
+      .title(title)
+      .startDatetime(startDatetime)
+      .endDatetime(endDatetime)
       .updatedAt(updatedAt)
+      .isCancelled(isCancelled)
       .build();
-    const event = new ClassSessionPendingUpdatedEvent(eventPayload);
-    this.broadcastService.broadcastEventToAllMicroservices(
-      event.pattern,
-      event.payload,
-    );
-  }
-
-  dispatchClassSessionVerificationUpdatedEvent(
-    classSessionId: string,
-  ) {
-    const eventPayload = Builder<ClassSessionVerificationUpdatedEventPayload>()
-      .classSessionId(classSessionId)
-      .build();
-    const event = new ClassSessionVerificationUpdatedEvent(eventPayload);
+    const event = new ClassSessionUpdatedEvent(eventPayload);
     this.broadcastService.broadcastEventToAllMicroservices(
       event.pattern,
       event.payload,

@@ -33,14 +33,6 @@ export class ClassSessionUpdateArgs extends IntersectionType(
     ] as const
   ))
 ) { }
-export class ClassSessionVerificationUpdateArgs extends PartialType(PickType(ClassSession,
-  [
-    'tutorVerified',
-    'classVerified',
-    'createStatus',
-    'updateStatus'
-  ] as const
-)) { }
 export class ClassSessionAddressUpdateArgs extends PickType(ClassSession,
   ['isOnline', 'address', 'wardId'] as const
 ) { }

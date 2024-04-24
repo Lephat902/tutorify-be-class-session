@@ -4,9 +4,12 @@ import { ClassSessionMaterial } from "src/read-repository/entities/class-session
 import { ClassSessionCreatedEvent, ClassSessionUpdatedEvent } from "src/events";
 import { Geometry } from 'geojson';
 import { ClassSessionEventDispatcher } from "src/class-session.event-dispatcher";
-import { ClassSessionVerificationUpdatedEvent } from "src/events/class-session-verification-updated.event";
-import { ClassSessionCreateArgs, ClassSessionAddressUpdateArgs, ClassSessionUpdateArgs, ClassSessionVerificationUpdateArgs, ClassSessionDeleteArgs } from "./args";
-import { ClassSessionCreateStatus, ClassSessionUpdateStatus } from "./enums";
+import {
+  ClassSessionCreateArgs,
+  ClassSessionAddressUpdateArgs,
+  ClassSessionUpdateArgs,
+  ClassSessionDeleteArgs
+} from "./args";
 
 @AggregateRootName("ClassSession")
 export class ClassSession extends AggregateRoot {
@@ -27,11 +30,6 @@ export class ClassSession extends AggregateRoot {
   public tutorFeedback: string = '';
   public feedbackUpdatedAt: Date = null;
   public isDeleted: boolean = false;
-
-  public createStatus: ClassSessionCreateStatus = ClassSessionCreateStatus.CREATE_PENDING;
-  public updateStatus: ClassSessionUpdateStatus = ClassSessionUpdateStatus.UPDATED;
-  public classVerified: boolean = false;
-  public tutorVerified: boolean = false;
 
   public constructor(id: string) {
     super(id);
@@ -72,12 +70,6 @@ export class ClassSession extends AggregateRoot {
     this.append(event);
   }
 
-  updateVerification(data: ClassSessionVerificationUpdateArgs) {
-    const event = new ClassSessionVerificationUpdatedEvent(data);
-    this.processClassSessionVerificationUpdatedEvent(event);
-    this.append(event);
-  }
-
   @EventProcessor(ClassSessionCreatedEvent)
   private processClassSessionCreatedEvent = (event: ClassSessionCreatedEvent) => {
     Object.assign(this, event);
@@ -85,11 +77,6 @@ export class ClassSession extends AggregateRoot {
 
   @EventProcessor(ClassSessionUpdatedEvent)
   private processClassSessionUpdatedEvent = (event: ClassSessionUpdatedEvent) => {
-    Object.assign(this, event);
-  };
-
-  @EventProcessor(ClassSessionVerificationUpdatedEvent)
-  private processClassSessionVerificationUpdatedEvent = (event: ClassSessionVerificationUpdatedEvent) => {
     Object.assign(this, event);
   };
 
@@ -101,11 +88,9 @@ export class ClassSession extends AggregateRoot {
     for (const event of recentlyAppendedEvents) {
       const eventPayload = event.payload;
       if (eventPayload instanceof ClassSessionCreatedEvent) {
-        ClassSession.classSessionEventDispatcher.dispatchClassSessionCreatedEvent(eventPayload.tutorId, this);
+        ClassSession.classSessionEventDispatcher.dispatchClassSessionCreatedEvent(this);
       } else if (eventPayload instanceof ClassSessionUpdatedEvent) {
-        ClassSession.classSessionEventDispatcher.dispatchClassSessionUpdatedEvent(eventPayload.tutorId, this);
-      } else if (eventPayload instanceof ClassSessionVerificationUpdatedEvent) {
-        ClassSession.classSessionEventDispatcher.dispatchClassSessionVerificationUpdatedEvent(this.id);
+        ClassSession.classSessionEventDispatcher.dispatchClassSessionUpdatedEvent(this);
       }
     }
 

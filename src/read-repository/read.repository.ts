@@ -58,6 +58,14 @@ export class ReadRepository extends Repository<ClassSession> {
       .getOne();
   }
 
+  async findClassById(
+    id: string,
+  ): Promise<Class> {
+    return this.dataSource.createQueryBuilder(Class, 'class')
+      .where('class.classId = :id', { id })
+      .getOne();
+  }
+
   async getClasses(
     filters: ClassQueryDto,
   ): Promise<{
@@ -70,13 +78,13 @@ export class ReadRepository extends Repository<ClassSession> {
     const queryBuilder = this.dataSource.createQueryBuilder(Class, 'class')
       .innerJoinAndSelect('class.sessions', 'classSession');
 
-      this.filterByUser(queryBuilder, userRole, userId);
-      this.filterByStartTime(queryBuilder, filters.startTime);
-      this.filterByEndTime(queryBuilder, filters.endTime);
-      this.filterByStatus(queryBuilder, filters.statuses, now);
-      this.orderByField(queryBuilder, filters.order, filters.dir);
-      this.paginateResults(queryBuilder, filters.page, filters.limit);
-  
+    this.filterByUser(queryBuilder, userRole, userId);
+    this.filterByStartTime(queryBuilder, filters.startTime);
+    this.filterByEndTime(queryBuilder, filters.endTime);
+    this.filterByStatus(queryBuilder, filters.statuses, now);
+    this.orderByField(queryBuilder, filters.order, filters.dir);
+    this.paginateResults(queryBuilder, filters.page, filters.limit);
+
     const [results, totalCount] = await queryBuilder.getManyAndCount();
     return { results, totalCount };
   }

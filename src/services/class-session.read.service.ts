@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ClassQueryDto, ClassSessionQueryDto } from '../dtos';
 import { Class, ClassSession } from '../read-repository/entities';
 import { ReadRepository } from '../read-repository/read.repository';
-import { ClassSessionStatus, UserMakeRequest, UserRole } from '@tutorify/shared';
+import { UserMakeRequest, UserRole } from '@tutorify/shared';
 import { SessionStatsPerClass } from 'src/dtos/class-session-stat.dto';
 
 @Injectable()
@@ -22,6 +22,12 @@ export class ClassSessionReadService {
       results,
       totalCount
     }
+  }
+
+  async findClassById(
+    id: string
+  ): Promise<Class> {
+    return this.readRepository.findClassById(id);
   }
 
   async getClasses(

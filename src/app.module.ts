@@ -10,6 +10,7 @@ import { ClassSessionEventDispatcher } from './class-session.event-dispatcher';
 import { EventNestMongoDbModule } from '@event-nest/mongodb';
 import { ClassSessionReadService, ClassSessionWriteService } from './services';
 import { MutexService } from './mutexes';
+import { ClassSessionEventSubscription } from './subsrciptions';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { MutexService } from './mutexes';
     ClassSessionEventDispatcher,
     MutexService,
     FileProxy,
+    ClassSessionEventSubscription,
   ],
   controllers: Controllers,
 })

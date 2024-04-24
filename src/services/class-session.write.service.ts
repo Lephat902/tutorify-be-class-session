@@ -1,15 +1,14 @@
 import { EVENT_STORE, EventStore, StoredEvent } from "@event-nest/core";
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { cleanAggregateObject, validateClassAndSessionAddress, FileProxy, haveManagerPermission } from "@tutorify/shared";
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { cleanAggregateObject, validateClassAndSessionAddress, FileProxy } from "@tutorify/shared";
 import { getNextSessionDateTime, getNextday, isEndTimeInThePast, isValidTimeSlotDuration, sanitizeTimeSlot } from "../helpers";
 import { ClassSessionDeleteDto, MultipleClassSessionsCreateDto } from "../dtos";
 import { Builder } from "builder-pattern";
-import { ClassSession, ClassSessionCreateArgs, ClassSessionUpdateArgs, ClassSessionVerificationUpdateArgs } from "../aggregates";
+import { ClassSession, ClassSessionCreateArgs, ClassSessionUpdateArgs } from "../aggregates";
 import { ClassSessionUpdateDto } from "../dtos/class-session-update.dto";
 import { ClassSessionReadService } from "./class-session.read.service";
-import { CLASS_SESSION_UPDATED_EVENT } from "src/events";
-import { ClassSessionCreateStatus, ClassSessionUpdateStatus } from "src/aggregates/enums";
 import { ClassSessionEventDispatcher } from "src/class-session.event-dispatcher";
+import { ClassSessionMaterial } from "src/read-repository/entities/class-session-material.entity";
 
 @Injectable()
 export class ClassSessionWriteService {
@@ -21,8 +20,9 @@ export class ClassSessionWriteService {
     ) { }
 
     async createMutiple(classSessionDto: MultipleClassSessionsCreateDto): Promise<ClassSession[]> {
-        const { classId, isOnline, address, wardId, useDefaultAddress } = classSessionDto;
+        const { tutorId, classId, isOnline, address, wardId, useDefaultAddress } = classSessionDto;
         const { endDateForRecurringSessions = null, numberOfSessionsToCreate = 1 } = classSessionDto;
+        await this.checkModificationPermission(classId, tutorId);
         // Validate and prepare necessary data
         if (!validateClassAndSessionAddress(isOnline, address, wardId, useDefaultAddress)) {
             throw new BadRequestException('Address & wardId is required for non-online class');
@@ -60,18 +60,9 @@ export class ClassSessionWriteService {
         // Save sessions
         const createdSessions = await Promise.all(validatedSessionsData.map(data => this.createNew(data)));
 
-        return cleanAggregateObject(createdSessions);
-    }
+        createdSessions.forEach(session => this.queryClassSessionAddress(session));
 
-    async updateClassSessionVerification(
-        id: string,
-        data: ClassSessionVerificationUpdateArgs,
-    ): Promise<ClassSession> {
-        const classSession = await this.getSessionById(id);
-        classSession.updateVerification(data);
-        const sessionWithPublisher = this.eventStore.addPublisher(classSession);
-        await sessionWithPublisher.commitAndPublishToExternal();
-        return classSession;
+        return cleanAggregateObject(createdSessions);
     }
 
     async updateClassSession(
@@ -80,23 +71,26 @@ export class ClassSessionWriteService {
     ): Promise<ClassSession> {
         const now = new Date();
         const existingSession = await this.getSessionById(id);
+        await this.checkModificationPermission(existingSession.classId, classSessionUpdateDto.tutorId);
         this.checkModificationValidity(existingSession);
 
         await this.validateSessionUpdate(existingSession, classSessionUpdateDto);
+
+        if (classSessionUpdateDto.useDefaultAddress) {
+            this.queryClassSessionAddress(existingSession);
+        }
 
         // Update with new data
         const dataToUpdate = this.prepareUpdateData(classSessionUpdateDto, now);
 
         existingSession.update(dataToUpdate);
 
-        // Set status to UPDATE_PENDING AFTER (just a convention) calling updating
-        existingSession.updateVerification({
-            updateStatus: ClassSessionUpdateStatus.UPDATE_PENDING,
-            tutorVerified: false,
-        });
-
         const sessionWithPublisher = this.eventStore.addPublisher(existingSession);
         await sessionWithPublisher.commitAndPublishToExternal();
+
+        if (classSessionUpdateDto.materials !== undefined) {
+            this.handleDeleteFileInStorage(classSessionUpdateDto.materials, existingSession.materials);
+        }
 
         return cleanAggregateObject(existingSession);
     }
@@ -105,8 +99,9 @@ export class ClassSessionWriteService {
         classSessionDeleteDto: ClassSessionDeleteDto,
     ): Promise<ClassSession> {
         const { classSessionId, userMakeRequest } = classSessionDeleteDto;
-        const { userId, userRole } = userMakeRequest;
+        const { userId } = userMakeRequest;
         const existingSession = await this.getSessionById(classSessionId);
+        await this.checkModificationPermission(existingSession.classId, userId);
         this.checkModificationValidity(existingSession);
 
         existingSession.update({
@@ -114,16 +109,10 @@ export class ClassSessionWriteService {
             isDeleted: true
         });
 
-        if (haveManagerPermission(userRole)) {
-            // Set status to UPDATE_PENDING AFTER (just a convention) calling deleting
-            existingSession.updateVerification({
-                updateStatus: ClassSessionUpdateStatus.UPDATE_PENDING,
-                tutorVerified: false,
-            });
-        }
-
         const sessionWithPublisher = this.eventStore.addPublisher(existingSession);
         await sessionWithPublisher.commitAndPublishToExternal();
+
+        this.handleDeleteFileInStorage([], existingSession.materials);
 
         return cleanAggregateObject(existingSession);
     }
@@ -161,17 +150,10 @@ export class ClassSessionWriteService {
         return ClassSession.fromEvents(id, events);
     }
 
-    async revertToLastUpdate(classSession: ClassSession) {
-        const sessionBeforeLastUpdate = await this.getSessionStateBeforeLastUpdate(classSession.id);
-        classSession.update(sessionBeforeLastUpdate);
-        const sessionWithPublisher = this.eventStore.addPublisher(classSession);
-        await sessionWithPublisher.commitAndPublishToExternal();
-    }
-
-    async handleDeleteFileInStorage(classSessionId: string) {
-        const latestClassSessionMaterials = (await this.getSessionById(classSessionId))?.materials;
-        const classSessionBeforeUpdateMaterials = (await this.getSessionStateBeforeLastUpdate(classSessionId))?.materials;
-
+    async handleDeleteFileInStorage(
+        latestClassSessionMaterials: ClassSessionMaterial[],
+        classSessionBeforeUpdateMaterials: ClassSessionMaterial[],
+    ) {
         // No need to clean up
         if (!(latestClassSessionMaterials?.length && classSessionBeforeUpdateMaterials?.length)) {
             return;
@@ -190,33 +172,22 @@ export class ClassSessionWriteService {
         }
     }
 
+    private async checkModificationPermission(classId: string, tutorId: string) {
+        const classToVerify = await this.classSessionReadService.findClassById(classId);
+        if (!classToVerify) 
+            throw new NotFoundException(`Class ${classId} not found`);
+        if (classToVerify.tutorId !== tutorId)
+            throw new ForbiddenException('None of your business');
+    }
+
     private async getAllEventsById(id: string): Promise<StoredEvent[]> {
         // Load aggregate from event store
         return this.eventStore.findByAggregateRootId(ClassSession, id);
     }
 
-    // Note: 'Update' here doesn't count verification update
-    private async getSessionStateBeforeLastUpdate(id: string): Promise<ClassSession> {
-        const events = await this.getAllEventsById(id);
-
-        // Start iterating from the last event towards the first
-        for (let i = events.length - 1; i >= 0; i--) {
-            if (events[i].eventName === CLASS_SESSION_UPDATED_EVENT) {
-                const eventsListBeforeLastUpdate = events.slice(0, i);
-                return cleanAggregateObject(ClassSession.fromEvents(id, eventsListBeforeLastUpdate));
-            }
-        }
-
-        return null;
-    }
-
     private checkModificationValidity(classSession: ClassSession) {
         if (!classSession)
             throw new NotFoundException(`Class session not found`);
-        if (classSession.createStatus !== ClassSessionCreateStatus.CREATED)
-            throw new BadRequestException(`You cannot modify a ${classSession.createStatus.toLowerCase()} class session`);
-        if (classSession.updateStatus !== ClassSessionUpdateStatus.UPDATED)
-            throw new BadRequestException(`You cannot modify a ${classSession.updateStatus.toLowerCase()} class session`);
         if (classSession.isDeleted)
             throw new NotFoundException(`Class session ${classSession.id} not found`);
     }
@@ -331,10 +302,6 @@ export class ClassSessionWriteService {
 
         if (dataToUpdate?.tutorFeedback) {
             dataToUpdate.feedbackUpdatedAt = now;
-        }
-
-        if (classSessionUpdateDto.useDefaultAddress) {
-            dataToUpdate.isOnline = dataToUpdate.address = dataToUpdate.wardId = null;
         }
 
         return dataToUpdate;
