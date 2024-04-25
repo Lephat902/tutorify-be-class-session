@@ -6,7 +6,6 @@ import { Geometry } from 'geojson';
 import { ClassSessionEventDispatcher } from "src/class-session.event-dispatcher";
 import {
   ClassSessionCreateArgs,
-  ClassSessionAddressUpdateArgs,
   ClassSessionUpdateArgs,
   ClassSessionDeleteArgs
 } from "./args";
@@ -62,7 +61,6 @@ export class ClassSession extends AggregateRoot {
   update(
     data:
       ClassSessionUpdateArgs |
-      ClassSessionAddressUpdateArgs |
       ClassSessionDeleteArgs
   ) {
     const event = new ClassSessionUpdatedEvent(data);
@@ -90,7 +88,10 @@ export class ClassSession extends AggregateRoot {
       if (eventPayload instanceof ClassSessionCreatedEvent) {
         ClassSession.classSessionEventDispatcher.dispatchClassSessionCreatedEvent(this);
       } else if (eventPayload instanceof ClassSessionUpdatedEvent) {
-        ClassSession.classSessionEventDispatcher.dispatchClassSessionUpdatedEvent(this);
+        if (eventPayload.isDeleted)
+          ClassSession.classSessionEventDispatcher.dispatchClassSessionDeletedEvent(this);
+        else
+          ClassSession.classSessionEventDispatcher.dispatchClassSessionUpdatedEvent(this);
       }
     }
 

@@ -136,7 +136,7 @@ export class ClassSessionWriteService {
         const existingSession = await this.getSessionById(id);
         this.checkModificationValidity(existingSession);
 
-        existingSession.update(addressData);
+        existingSession.update(addressData as ClassSessionUpdateArgs);
 
         const sessionWithPublisher = this.eventStore.addPublisher(existingSession);
         await sessionWithPublisher.commitAndPublishToExternal();

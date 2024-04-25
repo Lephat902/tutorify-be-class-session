@@ -8,6 +8,7 @@ import {
   ClassSessionDefaultAddressQueryEvent,
   ClassSessionDeletedEventPayload,
   ClassSessionDeletedEvent,
+  QueueNames,
 } from '@tutorify/shared';
 import { Builder } from 'builder-pattern';
 import { Injectable } from '@nestjs/common';
@@ -38,13 +39,14 @@ export class ClassSessionEventDispatcher {
   dispatchClassSessionUpdatedEvent(
     updatedClassSession: ClassSession,
   ) {
-    const { id, updatedAt, title, startDatetime, endDatetime, isCancelled } = updatedClassSession;
+    const { id, updatedAt, feedbackUpdatedAt, title, startDatetime, endDatetime, isCancelled } = updatedClassSession;
     const eventPayload = Builder<ClassSessionUpdatedEventPayload>()
       .classSessionId(id)
       .title(title)
       .startDatetime(startDatetime)
       .endDatetime(endDatetime)
       .updatedAt(updatedAt)
+      .feedbackUpdatedAt(feedbackUpdatedAt)
       .isCancelled(isCancelled)
       .build();
     const event = new ClassSessionUpdatedEvent(eventPayload);
@@ -55,12 +57,15 @@ export class ClassSessionEventDispatcher {
   }
 
   dispatchClassSessionDeletedEvent(
-    deleteSessionTutorId: string,
-    classSessionId: string,
+    deletedClassSession: ClassSession,
   ) {
+    const { id, updatedAt, title, startDatetime, endDatetime } = deletedClassSession;
     const eventPayload = Builder<ClassSessionDeletedEventPayload>()
-      .deleteSessionTutorId(deleteSessionTutorId)
-      .classSessionId(classSessionId)
+      .classSessionId(id)
+      .title(title)
+      .startDatetime(startDatetime)
+      .endDatetime(endDatetime)
+      .updatedAt(updatedAt)
       .build();
     const event = new ClassSessionDeletedEvent(eventPayload);
     this.broadcastService.broadcastEventToAllMicroservices(
@@ -76,9 +81,10 @@ export class ClassSessionEventDispatcher {
       .classId(classId)
       .build();
     const event = new ClassSessionDefaultAddressQueryEvent(eventPayload);
-    this.broadcastService.broadcastEventToAllMicroservices(
+    this.broadcastService.broadcastEventToSelectMicroservices(
       event.pattern,
       event.payload,
+      [QueueNames.CLASS_AND_CATEGORY],
     );
   }
 }
