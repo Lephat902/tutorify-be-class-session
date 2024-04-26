@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 import { ClassSession } from './entities/class-session.entity';
-import { ClassQueryDto, ClassSessionQueryDto } from '../dtos';
+import { ClassSessionQueryDto } from '../dtos';
 import { ClassSessionStatus, UserRole } from '@tutorify/shared';
 import { Class } from './entities';
 
-type QueryType = SelectQueryBuilder<ClassSession> | SelectQueryBuilder<Class>;
+type QueryType = SelectQueryBuilder<ClassSession>;
 
 @Injectable()
 export class ReadRepository extends Repository<ClassSession> {
@@ -64,29 +64,6 @@ export class ReadRepository extends Repository<ClassSession> {
     return this.dataSource.createQueryBuilder(Class, 'class')
       .where('class.classId = :id', { id })
       .getOne();
-  }
-
-  async getClasses(
-    filters: ClassQueryDto,
-  ): Promise<{
-    totalCount: number,
-    results: Class[],
-  }> {
-    const { userMakeRequest } = filters;
-    const { userRole, userId } = userMakeRequest;
-    const now = new Date();
-    const queryBuilder = this.dataSource.createQueryBuilder(Class, 'class')
-      .innerJoinAndSelect('class.sessions', 'classSession');
-
-    this.filterByUser(queryBuilder, userRole, userId);
-    this.filterByStartTime(queryBuilder, filters.startTime);
-    this.filterByEndTime(queryBuilder, filters.endTime);
-    this.filterByStatus(queryBuilder, filters.statuses, now);
-    this.orderByField(queryBuilder, filters.order, filters.dir);
-    this.paginateResults(queryBuilder, filters.page, filters.limit);
-
-    const [results, totalCount] = await queryBuilder.getManyAndCount();
-    return { results, totalCount };
   }
 
   private filterByClassId(query: QueryType, classId: string | undefined, userRole: UserRole, userId: string | undefined) {

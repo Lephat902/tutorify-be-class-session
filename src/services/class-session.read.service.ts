@@ -4,11 +4,13 @@ import { Class, ClassSession } from '../read-repository/entities';
 import { ReadRepository } from '../read-repository/read.repository';
 import { UserMakeRequest, UserRole } from '@tutorify/shared';
 import { SessionStatsPerClass } from 'src/dtos/class-session-stat.dto';
+import { ClassReadRepository } from 'src/read-repository';
 
 @Injectable()
 export class ClassSessionReadService {
   constructor(
     private readonly readRepository: ReadRepository,
+    private readonly classReadRepository: ClassReadRepository,
   ) { }
 
   async getClassSessionsAndTotalCount(
@@ -36,7 +38,7 @@ export class ClassSessionReadService {
     totalCount: number,
     results: Class[],
   }> {
-    return this.readRepository.getClasses(filters);
+    return this.classReadRepository.getClasses(filters);
   }
 
   async getClassSessionById(

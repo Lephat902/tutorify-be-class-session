@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Controllers } from './controllers';
-import { ReadRepository } from './read-repository';
+import { ClassReadRepository, ReadRepository } from './read-repository';
 import { BroadcastModule, FileProxy, QueueNames } from '@tutorify/shared';
 import { entities } from './read-repository/entities';
 import { ClientsModule, Transport } from '@nestjs/microservices';
@@ -58,6 +58,7 @@ import { ClassSessionEventSubscription } from './subsrciptions';
     ClassSessionWriteService,
     ClassSessionReadService,
     ReadRepository,
+    ClassReadRepository,
     ClassSessionEventDispatcher,
     MutexService,
     FileProxy,
