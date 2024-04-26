@@ -40,7 +40,7 @@ export class ClassSessionEventDispatcher {
   dispatchClassSessionUpdatedEvent(
     updatedClassSession: ClassSession,
   ) {
-    const { id, classId, updatedAt, feedbackUpdatedAt, title, startDatetime, endDatetime, isCancelled } = updatedClassSession;
+    const { id, classId, updatedAt, tutorFeedback, feedbackUpdatedAt, title, startDatetime, endDatetime, isCancelled } = updatedClassSession;
     const eventPayload = Builder<ClassSessionUpdatedEventPayload>()
       .classSessionId(id)
       .classId(classId)
@@ -49,6 +49,7 @@ export class ClassSessionEventDispatcher {
       .endDatetime(endDatetime)
       .updatedAt(updatedAt)
       .feedbackUpdatedAt(feedbackUpdatedAt)
+      .tutorFeedback(tutorFeedback)
       .isCancelled(isCancelled)
       .build();
     const event = new ClassSessionUpdatedEvent(eventPayload);
