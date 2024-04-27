@@ -68,22 +68,22 @@ export class ClassReadRepository extends Repository<Class> {
     private filterByStatus(query: QueryType, statuses: ClassSessionStatus[] | undefined) {
         if (statuses) {
             const rawQueryToGetNonFinishedClassesIds = `(
-                SELECT cs."classClassId" 
-                FROM class_session cs 
+                SELECT cs."classClassId"
+                FROM class_session cs
                 WHERE cs."endDatetime" > NOW()
                 AND cs."isCancelled" = false
                 GROUP BY cs."classClassId"
             )`;
-            if (statuses.includes(ClassSessionStatus.CONCLUDED)) {
-                query
-                    .andWhere(`
-                        class."classId" NOT IN ${rawQueryToGetNonFinishedClassesIds}`);
-            }
 
-            if (statuses.includes(ClassSessionStatus.SCHEDULED)) {
-                query
-                    .andWhere(`
-                        class."classId" IN ${rawQueryToGetNonFinishedClassesIds}`);
+            const includeConcluded = statuses.includes(ClassSessionStatus.CONCLUDED);
+            const includeScheduled = statuses.includes(ClassSessionStatus.SCHEDULED);
+
+            if (includeConcluded && includeScheduled) {
+                return;
+            } else if (includeConcluded) {
+                query.andWhere(`class."classId" NOT IN ${rawQueryToGetNonFinishedClassesIds}`);
+            } else if (includeScheduled) {
+                query.andWhere(`class."classId" IN ${rawQueryToGetNonFinishedClassesIds}`);
             }
         }
     }
