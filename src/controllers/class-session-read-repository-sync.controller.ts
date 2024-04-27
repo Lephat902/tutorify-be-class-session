@@ -6,6 +6,8 @@ import {
   ClassApplicationUpdatedEventPayload,
   ClassCreatedEventPattern,
   ClassCreatedEventPayload,
+  ClassDeletedEventPattern,
+  ClassDeletedEventPayload,
 } from '@tutorify/shared';
 import { Class } from 'src/read-repository';
 import { Repository } from 'typeorm';
@@ -30,6 +32,16 @@ export class ReadRepositorySync {
     });
 
     await this.classRepository.save(newRecord);
+  }
+
+  @EventPattern(new ClassDeletedEventPattern())
+  async handleClassDeleted(
+    payload: ClassDeletedEventPayload,
+  ) {
+    const { classId } = payload;
+    console.log(`Starting deleting class record`);
+
+    await this.classRepository.delete(classId);
   }
 
   @EventPattern(new ClassApplicationUpdatedEventPattern())
