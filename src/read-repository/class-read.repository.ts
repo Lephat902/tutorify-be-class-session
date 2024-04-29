@@ -22,7 +22,7 @@ export class ClassReadRepository extends Repository<Class> {
         const { userMakeRequest } = filters;
         const { userRole, userId } = userMakeRequest;
         const queryBuilder = this.createQueryBuilder('class')
-            .innerJoinAndSelect('class.sessions', 'classSession');
+            .leftJoinAndSelect('class.sessions', 'classSession');
 
         this.filterByUser(queryBuilder, userRole, userId);
         this.filterByStartTime(queryBuilder, filters.startTime);
