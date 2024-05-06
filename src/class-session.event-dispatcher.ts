@@ -21,8 +21,9 @@ export class ClassSessionEventDispatcher {
   dispatchClassSessionCreatedEvent(
     newClassSession: ClassSession,
   ) {
-    const { id, classId, createdAt, title, startDatetime, endDatetime } = newClassSession;
+    const { id, tutorId, classId, createdAt, title, startDatetime, endDatetime } = newClassSession;
     const eventPayload = Builder<ClassSessionCreatedEventPayload>()
+      .tutorId(tutorId)
       .classSessionId(id)
       .classId(classId)
       .title(title)
@@ -40,10 +41,11 @@ export class ClassSessionEventDispatcher {
   dispatchClassSessionUpdatedEvent(
     updatedClassSession: ClassSession,
   ) {
-    const { id, classId, updatedAt, tutorFeedback, feedbackUpdatedAt, title, startDatetime, endDatetime, isCancelled } = updatedClassSession;
+    const { id, tutorId, classId, updatedAt, tutorFeedback, feedbackUpdatedAt, title, startDatetime, endDatetime, isCancelled } = updatedClassSession;
     const eventPayload = Builder<ClassSessionUpdatedEventPayload>()
       .classSessionId(id)
       .classId(classId)
+      .tutorId(tutorId)
       .title(title)
       .startDatetime(startDatetime)
       .endDatetime(endDatetime)
@@ -62,10 +64,11 @@ export class ClassSessionEventDispatcher {
   dispatchClassSessionDeletedEvent(
     deletedClassSession: ClassSession,
   ) {
-    const { id, classId, updatedAt, title, startDatetime, endDatetime } = deletedClassSession;
+    const { id, tutorId, classId, updatedAt, title, startDatetime, endDatetime } = deletedClassSession;
     const eventPayload = Builder<ClassSessionDeletedEventPayload>()
       .classSessionId(id)
       .classId(classId)
+      .tutorId(tutorId)
       .title(title)
       .startDatetime(startDatetime)
       .endDatetime(endDatetime)
