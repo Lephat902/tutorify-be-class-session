@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { ClassQueryDto, ClassSessionQueryDto } from '../dtos';
-import { Class, ClassSession } from '../read-repository/entities';
-import { ReadRepository } from '../read-repository/read.repository';
 import { UserMakeRequest, UserRole } from '@tutorify/shared';
 import { SessionStatsPerClass } from 'src/dtos/class-session-stat.dto';
 import { ClassReadRepository } from 'src/read-repository';
+import { ClassQueryDto, ClassSessionQueryDto } from '../dtos';
+import { Class, ClassSession } from '../read-repository/entities';
+import { ReadRepository } from '../read-repository/read.repository';
 
 @Injectable()
 export class ClassSessionReadService {
@@ -18,12 +18,9 @@ export class ClassSessionReadService {
   ): Promise<{
     totalCount: number,
     results: ClassSession[],
+    newPageIndex: number,
   }> {
-    const { results, totalCount } = await this.readRepository.getAllClassSessions(filters);
-    return {
-      results,
-      totalCount
-    }
+    return this.readRepository.getAllClassSessions(filters);
   }
 
   async findClassById(
@@ -104,7 +101,7 @@ export class ClassSessionReadService {
     classId: string,
     userMakeRequest: UserMakeRequest,
   ): Promise<SessionStatsPerClass> {
-    const getAllClassSessionsQuery = this.readRepository.getAllClassSessionsQuery({
+    const getAllClassSessionsQuery = await this.readRepository.getAllClassSessionsQuery({
       classId,
       userMakeRequest,
     });

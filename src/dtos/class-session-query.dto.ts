@@ -18,4 +18,7 @@ export class ClassSessionQueryDto extends IntersectionType(
   readonly endTime?: Date;
   readonly statuses?: ClassSessionStatus[];
   readonly userMakeRequest: UserMakeRequest;
+  readonly markItemId?: string;
+  // not input
+  newPageIndex?: number;
 }

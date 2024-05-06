@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
-import { ClassSession } from './entities/class-session.entity';
-import { ClassSessionQueryDto } from '../dtos';
 import { ClassSessionStatus, UserRole } from '@tutorify/shared';
+import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
+import { ClassSessionQueryDto } from '../dtos';
 import { Class } from './entities';
+import { ClassSession } from './entities/class-session.entity';
 
 type QueryType = SelectQueryBuilder<ClassSession>;
 
@@ -13,9 +13,9 @@ export class ReadRepository extends Repository<ClassSession> {
     super(ClassSession, dataSource.createEntityManager());
   }
 
-  getAllClassSessionsQuery(
+  async getAllClassSessionsQuery(
     filters: ClassSessionQueryDto,
-  ): SelectQueryBuilder<ClassSession> {
+    ): Promise<SelectQueryBuilder<ClassSession>> {
     const { userMakeRequest } = filters;
     const { userRole, userId } = userMakeRequest;
     const now = new Date();
@@ -29,7 +29,9 @@ export class ReadRepository extends Repository<ClassSession> {
     this.filterByEndTime(queryBuilder, filters.endTime);
     this.filterByStatus(queryBuilder, filters.statuses, now);
     this.orderByField(queryBuilder, filters.order, filters.dir);
-    this.paginateResults(queryBuilder, filters.page, filters.limit);
+    if (filters.markItemId)
+      filters.newPageIndex = await this.getCurrentPageOfMarkItem(queryBuilder, filters.markItemId, filters.limit);
+    this.paginateResults(queryBuilder, filters.newPageIndex ?? filters.page, filters.limit);
 
     return queryBuilder;
   }
@@ -39,10 +41,11 @@ export class ReadRepository extends Repository<ClassSession> {
   ): Promise<{
     totalCount: number,
     results: ClassSession[],
+    newPageIndex: number,
   }> {
-    const queryBuilder = this.getAllClassSessionsQuery(filters);
+    const queryBuilder = await this.getAllClassSessionsQuery(filters);
     const [results, totalCount] = await queryBuilder.getManyAndCount();
-    return { results, totalCount };
+    return { results, totalCount, newPageIndex: filters.newPageIndex };
   }
 
   async getSessionCountOfClassSession(classId: string): Promise<number> {
@@ -142,9 +145,36 @@ export class ReadRepository extends Repository<ClassSession> {
     }
   }
 
-  private paginateResults(query: QueryType, page: number | undefined, limit: number | undefined) {
+  private paginateResults(
+    query: QueryType,
+    page: number | undefined,
+    limit: number | undefined,
+  ) {
     if (page && limit) {
       query.skip((page - 1) * limit).take(limit);
     }
+  }
+
+  private async getCurrentPageOfMarkItem(query: QueryType, markItemId: string, limit: number = 10) {
+    const itemRank = await this.getItemRank(query, markItemId);
+    return Math.ceil(itemRank / limit);
+  }
+
+  private async getItemRank(query: QueryType, markItemId: string): Promise<number> {
+    // The query is currently not paginated yet
+    const clonedQuery = query.clone();
+    const markItemEndtimeQuery = this.createQueryBuilder('classSession')
+      .select('classSession.endDatetime', 'endDatetime')
+      .where('classSession.id = :markItemId', { markItemId })
+      .getQuery();
+
+    clonedQuery
+      .orderBy('classSession.endDatetime', 'ASC')
+      .andWhere(`classSession.endDatetime <= (${markItemEndtimeQuery})`)
+      .setParameters({ markItemId });
+
+    const result = await clonedQuery.getCount();
+
+    return result ?? 0;
   }
 }
