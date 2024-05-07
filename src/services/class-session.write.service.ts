@@ -210,7 +210,7 @@ export class ClassSessionWriteService {
         return Builder<ClassSessionCreateArgs>()
             .tutorId(classSessionDto.tutorId)
             .classId(classSessionDto.classId)
-            .description(ith === 0 ? classSessionDto?.description : '')
+            .description(classSessionDto?.description)
             .title(`${classSessionDto.title}${titleSuffix}`)
             .createdAt(new Date())
             .startDatetime(startDatetime)
