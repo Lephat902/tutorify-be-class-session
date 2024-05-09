@@ -1,14 +1,14 @@
 import { EVENT_STORE, EventStore, StoredEvent } from "@event-nest/core";
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { cleanAggregateObject, validateClassAndSessionAddress, FileProxy } from "@tutorify/shared";
-import { getNextSessionDateTime, getNextday, isEndTimeInThePast, isValidTimeSlotDuration, sanitizeTimeSlot } from "../helpers";
-import { ClassSessionDeleteDto, MultipleClassSessionsCreateDto } from "../dtos";
+import { FileProxy, cleanAggregateObject, validateClassAndSessionAddress } from "@tutorify/shared";
 import { Builder } from "builder-pattern";
-import { ClassSession, ClassSessionCreateArgs, ClassSessionUpdateArgs } from "../aggregates";
-import { ClassSessionUpdateDto } from "../dtos/class-session-update.dto";
-import { ClassSessionReadService } from "./class-session.read.service";
 import { ClassSessionEventDispatcher } from "src/class-session.event-dispatcher";
 import { ClassSessionMaterial } from "src/read-repository/entities/class-session-material.entity";
+import { ClassSession, ClassSessionCreateArgs, ClassSessionUpdateArgs } from "../aggregates";
+import { ClassSessionDeleteDto, MultipleClassSessionsCreateDto } from "../dtos";
+import { ClassSessionUpdateDto } from "../dtos/class-session-update.dto";
+import { getNextSessionDateTime, getNextday, isEndTimeInThePast, isValidTimeSlotDuration, sanitizeTimeSlot } from "../helpers";
+import { ClassSessionReadService } from "./class-session.read.service";
 
 @Injectable()
 export class ClassSessionWriteService {
@@ -19,7 +19,7 @@ export class ClassSessionWriteService {
         private readonly classSessionEventDispatcher: ClassSessionEventDispatcher,
     ) { }
 
-    async createMutiple(classSessionDto: MultipleClassSessionsCreateDto): Promise<ClassSession[]> {
+    async createMutiple(classSessionDto: MultipleClassSessionsCreateDto): Promise<object[]> {
         const { tutorId, classId, isOnline, address, wardId, useDefaultAddress } = classSessionDto;
         const { endDateForRecurringSessions = null, numberOfSessionsToCreate = 1 } = classSessionDto;
         await this.checkModificationPermission(classId, tutorId);
@@ -59,6 +59,13 @@ export class ClassSessionWriteService {
 
         // Save sessions
         const createdSessions = await Promise.all(validatedSessionsData.map(data => this.createNew(data)));
+        for (let i = 0; i < createdSessions.length; ++i) {
+            this.classSessionEventDispatcher.dispatchClassSessionCreatedEvent(
+                createdSessions[i],
+                i === 0,
+                createdSessions.length,
+            );
+        }
 
         createdSessions.forEach(session => this.queryClassSessionAddress(session));
 
@@ -195,7 +202,7 @@ export class ClassSessionWriteService {
     private async createNew(data: ClassSessionCreateArgs): Promise<ClassSession> {
         const session = ClassSession.createNew(data);
         const sessionWithPublisher = this.eventStore.addPublisher(session);
-        await sessionWithPublisher.commitAndPublishToExternal();
+        await sessionWithPublisher.commit();
         return session;
     }
 

@@ -20,6 +20,8 @@ export class ClassSessionEventDispatcher {
 
   dispatchClassSessionCreatedEvent(
     newClassSession: ClassSession,
+    isFirstSessionInBatch: boolean = false,
+    numOfSessionsCreatedInBatch: number = 1,
   ) {
     const { id, tutorId, classId, createdAt, title, startDatetime, endDatetime } = newClassSession;
     const eventPayload = Builder<ClassSessionCreatedEventPayload>()
@@ -30,6 +32,8 @@ export class ClassSessionEventDispatcher {
       .startDatetime(startDatetime)
       .endDatetime(endDatetime)
       .createdAt(createdAt)
+      .isFirstSessionInBatch(isFirstSessionInBatch)
+      .numOfSessionsCreatedInBatch(numOfSessionsCreatedInBatch)
       .build();
     const event = new ClassSessionCreatedEvent(eventPayload);
     this.broadcastService.broadcastEventToAllMicroservices(
