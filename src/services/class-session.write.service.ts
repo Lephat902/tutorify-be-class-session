@@ -59,13 +59,7 @@ export class ClassSessionWriteService {
 
         // Save sessions
         const createdSessions = await Promise.all(validatedSessionsData.map(data => this.createNew(data)));
-        for (let i = 0; i < createdSessions.length; ++i) {
-            this.classSessionEventDispatcher.dispatchClassSessionCreatedEvent(
-                createdSessions[i],
-                i === 0,
-                createdSessions.length,
-            );
-        }
+        this.classSessionEventDispatcher.dispatchMultiClassSessionsCreatedEvent(createdSessions);
 
         createdSessions.forEach(session => this.queryClassSessionAddress(session));
 
@@ -181,7 +175,7 @@ export class ClassSessionWriteService {
 
     private async checkModificationPermission(classId: string, tutorId: string) {
         const classToVerify = await this.classSessionReadService.findClassById(classId);
-        if (!classToVerify) 
+        if (!classToVerify)
             throw new NotFoundException(`Class ${classId} not found`);
         if (classToVerify.tutorId !== tutorId)
             throw new ForbiddenException('None of your business');

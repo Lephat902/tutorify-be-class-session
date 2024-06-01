@@ -1,41 +1,42 @@
+import { Injectable } from '@nestjs/common';
 import {
   BroadcastService,
-  ClassSessionCreatedEvent,
-  ClassSessionCreatedEventPayload,
+  ClassSessionDefaultAddressQueryEvent,
+  ClassSessionDefaultAddressQueryEventPayload,
+  ClassSessionDeletedEvent,
+  ClassSessionDeletedEventPayload,
   ClassSessionUpdatedEvent,
   ClassSessionUpdatedEventPayload,
-  ClassSessionDefaultAddressQueryEventPayload,
-  ClassSessionDefaultAddressQueryEvent,
-  ClassSessionDeletedEventPayload,
-  ClassSessionDeletedEvent,
+  MultiClassSessionsCreatedEvent,
+  MultiClassSessionsCreatedEventPayload,
   QueueNames,
 } from '@tutorify/shared';
 import { Builder } from 'builder-pattern';
-import { Injectable } from '@nestjs/common';
 import { ClassSession } from './aggregates';
 
 @Injectable()
 export class ClassSessionEventDispatcher {
   constructor(private readonly broadcastService: BroadcastService) { }
 
-  dispatchClassSessionCreatedEvent(
-    newClassSession: ClassSession,
-    isFirstSessionInBatch: boolean = false,
-    numOfSessionsCreatedInBatch: number = 1,
+  dispatchMultiClassSessionsCreatedEvent(
+    newClassSessions: ClassSession[],
   ) {
-    const { id, tutorId, classId, createdAt, title, startDatetime, endDatetime } = newClassSession;
-    const eventPayload = Builder<ClassSessionCreatedEventPayload>()
+    const { id, tutorId, classId, createdAt } = newClassSessions[0];
+    const sessionDetails = newClassSessions.map(({ title, startDatetime, endDatetime }) => ({
+      title,
+      startDatetime,
+      endDatetime,
+    }));
+
+    const eventPayload = Builder<MultiClassSessionsCreatedEventPayload>()
       .tutorId(tutorId)
       .classSessionId(id)
       .classId(classId)
-      .title(title)
-      .startDatetime(startDatetime)
-      .endDatetime(endDatetime)
       .createdAt(createdAt)
-      .isFirstSessionInBatch(isFirstSessionInBatch)
-      .numOfSessionsCreatedInBatch(numOfSessionsCreatedInBatch)
+      .sessionsDetails(sessionDetails)
       .build();
-    const event = new ClassSessionCreatedEvent(eventPayload);
+
+    const event = new MultiClassSessionsCreatedEvent(eventPayload);
     this.broadcastService.broadcastEventToAllMicroservices(
       event.pattern,
       event.payload,
