@@ -1,16 +1,21 @@
-import { AggregateRoot, AggregateRootName, EventProcessor, StoredEvent } from "@event-nest/core";
-import { BroadcastService, generateRandomHex } from "@tutorify/shared";
-import { ClassSessionMaterial } from "src/read-repository/entities/class-session-material.entity";
-import { ClassSessionCreatedEvent, ClassSessionUpdatedEvent } from "src/events";
+import {
+  AggregateRoot,
+  AggregateRootName,
+  EventProcessor,
+  StoredEvent,
+} from '@event-nest/core';
+import { BroadcastService, generateRandomHex } from '@tutorify/shared';
+import { ClassSessionMaterial } from 'src/read-repository/entities/class-session-material.entity';
+import { ClassSessionCreatedEvent, ClassSessionUpdatedEvent } from 'src/events';
 import { Geometry } from 'geojson';
-import { ClassSessionEventDispatcher } from "src/class-session.event-dispatcher";
+import { ClassSessionEventDispatcher } from 'src/class-session.event-dispatcher';
 import {
   ClassSessionCreateArgs,
   ClassSessionUpdateArgs,
-  ClassSessionDeleteArgs
-} from "./args";
+  ClassSessionDeleteArgs,
+} from './args';
 
-@AggregateRootName("ClassSession")
+@AggregateRootName('ClassSession')
 export class ClassSession extends AggregateRoot {
   public tutorId: string;
   public classId: string;
@@ -41,7 +46,9 @@ export class ClassSession extends AggregateRoot {
 
   static initialize() {
     const broadcastService = new BroadcastService();
-    ClassSession.classSessionEventDispatcher = new ClassSessionEventDispatcher(broadcastService);
+    ClassSession.classSessionEventDispatcher = new ClassSessionEventDispatcher(
+      broadcastService,
+    );
   }
 
   public static createNew(data: ClassSessionCreateArgs): ClassSession {
@@ -52,29 +59,32 @@ export class ClassSession extends AggregateRoot {
     return classSession;
   }
 
-  public static fromEvents(id: string, events: Array<StoredEvent>): ClassSession {
+  public static fromEvents(
+    id: string,
+    events: Array<StoredEvent>,
+  ): ClassSession {
     const classSession = new ClassSession(id);
     classSession.reconstitute(events);
     return classSession;
   }
 
-  update(
-    data:
-      ClassSessionUpdateArgs |
-      ClassSessionDeleteArgs
-  ) {
+  update(data: ClassSessionUpdateArgs | ClassSessionDeleteArgs) {
     const event = new ClassSessionUpdatedEvent(data);
     this.processClassSessionUpdatedEvent(event);
     this.append(event);
   }
 
   @EventProcessor(ClassSessionCreatedEvent)
-  private processClassSessionCreatedEvent = (event: ClassSessionCreatedEvent) => {
+  private processClassSessionCreatedEvent = (
+    event: ClassSessionCreatedEvent,
+  ) => {
     Object.assign(this, event);
   };
 
   @EventProcessor(ClassSessionUpdatedEvent)
-  private processClassSessionUpdatedEvent = (event: ClassSessionUpdatedEvent) => {
+  private processClassSessionUpdatedEvent = (
+    event: ClassSessionUpdatedEvent,
+  ) => {
     Object.assign(this, event);
   };
 
@@ -85,13 +95,15 @@ export class ClassSession extends AggregateRoot {
 
     for (const event of recentlyAppendedEvents) {
       const eventPayload = event.payload;
-      if (eventPayload instanceof ClassSessionCreatedEvent) {
-        ClassSession.classSessionEventDispatcher.dispatchClassSessionCreatedEvent(this);
-      } else if (eventPayload instanceof ClassSessionUpdatedEvent) {
+      if (eventPayload instanceof ClassSessionUpdatedEvent) {
         if (eventPayload.isDeleted)
-          ClassSession.classSessionEventDispatcher.dispatchClassSessionDeletedEvent(this);
+          ClassSession.classSessionEventDispatcher.dispatchClassSessionDeletedEvent(
+            this,
+          );
         else
-          ClassSession.classSessionEventDispatcher.dispatchClassSessionUpdatedEvent(this);
+          ClassSession.classSessionEventDispatcher.dispatchClassSessionUpdatedEvent(
+            this,
+          );
       }
     }
 
